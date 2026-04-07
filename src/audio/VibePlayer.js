@@ -167,10 +167,19 @@ class VibePlayer extends EventTarget {
     await this.playTrack(this.queue[idx]);
   }
 
-  togglePlay() {
+  async togglePlay() {
     const audio = this._activeAudio();
-    if (audio.paused) { audio.play(); this.isPlaying = true; }
-    else              { audio.pause(); this.isPlaying = false; }
+    if (!audio.src) return;
+    if (this.ctx?.state !== 'running') {
+      try { await this.ctx?.resume(); } catch(e) {}
+    }
+    if (audio.paused) {
+      try { await audio.play(); this.isPlaying = true; }
+      catch(e) { console.warn('Play failed:', e); return; }
+    } else {
+      audio.pause();
+      this.isPlaying = false;
+    }
     this._emit('playback-state', { isPlaying: this.isPlaying });
   }
 
