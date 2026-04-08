@@ -5,13 +5,12 @@ import {
   getPlayHistory, getAllGenres, getByGenre, getVibeRadio,
   getInstantMix, getAlbums, getAllTracks, getAlbumTracks,
   search, getImageUrl, getAlbumImageUrl,
+  getArtistAlbums, getArtistTracks, getArtistImageUrl,
 } from './api/jellyfin';
 import { useVibePlayer } from './hooks/useVibePlayer';
 import { extractColors } from './utils/colorExtract';
 
 // ─── Shared Color Context ─────────────────────────────────────────────────────
-// Single extraction per track. MiniPlayer + FullPlayer both read from here.
-// Zero duplicate extractColors() calls. Zero color mismatch.
 const ColorCtx = createContext({ accent: '#7c3aed', primary: '#0a0a14' });
 
 function ColorProvider({ track, children }) {
@@ -169,7 +168,7 @@ function Loader() {
   );
 }
 
-// ─── Mini Player — reads from shared ColorCtx ─────────────────────────────────
+// ─── Mini Player ─────────────────────────────────────────────────────────────
 function MiniPlayer({ track, isPlaying, progress, onToggle, onNext, onPrev, onExpand }) {
   const { accent } = useColors();
   if (!track) return null;
@@ -195,7 +194,7 @@ function MiniPlayer({ track, isPlaying, progress, onToggle, onNext, onPrev, onEx
   );
 }
 
-// ─── Drag-to-Close Hook ───────────────────────────────────────────────────────
+// ─── Drag-to-Close Hook ──────────────────────────────────────────────────────
 // Works from ANYWHERE on the player — album art, track info, anywhere.
 // Scroll conflict resolution:
 //   - If scrollTop > 0: let scroll happen, don't activate drag
@@ -207,7 +206,7 @@ function useDragToClose(onClose, scrollRef) {
   const startY       = useRef(0);
   const startTime    = useRef(0);
   const active       = useRef(false);
-  const decided      = useRef(false); // have we decided drag vs scroll yet?
+  const decided      = useRef(false);
   const frameRef     = useRef(null);
   const fromHandle   = useRef(false);
 
@@ -219,7 +218,6 @@ function useDragToClose(onClose, scrollRef) {
     el.style.borderRadius = radius > 0 ? `${radius}px ${radius}px 0 0` : '0';
   }, []);
 
-  // Called from grab handle — always drag
   const onHandlePointerDown = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -232,16 +230,13 @@ function useDragToClose(onClose, scrollRef) {
     if (scrollRef.current) scrollRef.current.style.overflowY = 'hidden';
   }, [scrollRef]);
 
-  // Called from the whole player surface
   const onPointerDown = useCallback((e) => {
     fromHandle.current = false;
     decided.current    = false;
     startY.current     = e.clientY;
     startTime.current  = Date.now();
-    // Check scroll position at touch start
     const scrollTop = scrollRef.current?.scrollTop ?? 0;
     if (scrollTop <= 2) {
-      // At top — pre-activate so drag is instant on first move
       active.current = true;
       elRef.current?.setPointerCapture?.(e.pointerId);
     } else {
@@ -251,31 +246,23 @@ function useDragToClose(onClose, scrollRef) {
 
   const onPointerMove = useCallback((e) => {
     const delta = e.clientY - startY.current;
-
-    // Handle — always drag
     if (fromHandle.current) {
       if (delta <= 0) return;
       cancelAnimationFrame(frameRef.current);
       frameRef.current = requestAnimationFrame(() => setStyle(delta, Math.min(delta * 0.18, 24)));
       return;
     }
-
     if (!active.current) return;
-
-    // If user goes upward, cancel drag and restore scroll
     if (delta < 0) {
       active.current = false;
       if (scrollRef.current) scrollRef.current.style.overflowY = '';
       setStyle(0, 0, 'transform 0.2s ease');
       return;
     }
-
-    // Lock scroll on first downward move
     if (!decided.current) {
       decided.current = true;
       if (scrollRef.current) scrollRef.current.style.overflowY = 'hidden';
     }
-
     cancelAnimationFrame(frameRef.current);
     frameRef.current = requestAnimationFrame(() => setStyle(delta, Math.min(delta * 0.18, 24)));
   }, [setStyle, scrollRef]);
@@ -284,15 +271,12 @@ function useDragToClose(onClose, scrollRef) {
     fromHandle.current = false;
     if (scrollRef.current) scrollRef.current.style.overflowY = '';
     cancelAnimationFrame(frameRef.current);
-
     if (!active.current) { active.current = false; decided.current = false; return; }
     active.current  = false;
     decided.current = false;
-
     const delta    = e.clientY - startY.current;
     const elapsed  = Math.max(Date.now() - startTime.current, 1);
     const velocity = delta / elapsed;
-
     if (velocity > 0.45 || delta > 120) {
       setStyle(window.innerHeight, 0, 'transform 0.28s cubic-bezier(0.32,0.72,0,1)');
       setTimeout(onClose, 280);
@@ -304,7 +288,7 @@ function useDragToClose(onClose, scrollRef) {
   return { elRef, onHandlePointerDown, onPointerDown, onPointerMove, onPointerUp };
 }
 
-// ─── Full Player — reads from shared ColorCtx ─────────────────────────────────
+// ─── Full Player ──────────────────────────────────────────────────────────────
 function FullPlayer({ track, isPlaying, progress, currentTime, duration, volume,
   isShuffle, repeatMode, onToggle, onNext, onPrev, onSeek, onVolume,
   onShuffle, onRepeat, onClose, getWaveform }) {
@@ -313,7 +297,6 @@ function FullPlayer({ track, isPlaying, progress, currentTime, duration, volume,
   const scrollRef = useRef(null);
   const { elRef, onHandlePointerDown, onPointerDown, onPointerMove, onPointerUp } = useDragToClose(onClose, scrollRef);
 
-  // Lock body scroll while player is mounted — prevents background jitter
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     document.body.style.position = 'fixed';
@@ -336,13 +319,11 @@ function FullPlayer({ track, isPlaying, progress, currentTime, duration, volume,
       onPointerCancel={onPointerUp}
       style={{ position: 'fixed', inset: 0, zIndex: 201, overflow: 'hidden', willChange: 'transform' }}>
 
-      {/* Solid color background from album art — no blur, no jitter */}
       <div style={{
         position: 'absolute', inset: 0, zIndex: 0,
         background: `linear-gradient(160deg, ${primary} 0%, #0a0a12 45%, #080810 100%)`,
       }} />
 
-      {/* Scrollable content — overflow managed by drag hook */}
       <div ref={scrollRef} style={{
         position: 'relative', zIndex: 1, height: '100%',
         overflowY: 'auto', overflowX: 'hidden',
@@ -351,26 +332,17 @@ function FullPlayer({ track, isPlaying, progress, currentTime, duration, volume,
         paddingTop: 'env(safe-area-inset-top)',
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}>
-
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 24px 40px' }}>
 
-          {/* Grab handle */}
+          {/* Grab handle — full width tap target, no chevron needed */}
           <div
             onPointerDown={onHandlePointerDown}
-            style={{ width: 48, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              margin: '10px auto 2px', cursor: 'grab', flexShrink: 0, touchAction: 'none', userSelect: 'none' }}>
+            style={{
+              width: '100%', height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '10px auto 16px', cursor: 'grab', flexShrink: 0,
+              touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none',
+            }}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.25)' }} />
-          </div>
-
-          {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', width: '100%', marginBottom: 16, marginTop: 4 }}>
-            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', width: 34, height: 34, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              {Icons.chevronDown('#f1f5f9')}
-            </button>
-            <div style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#475569', letterSpacing: 1.5, textTransform: 'uppercase' }}>Now Playing</div>
-            </div>
-            <div style={{ width: 34 }} />
           </div>
 
           {/* Album Art */}
@@ -430,6 +402,222 @@ function FullPlayer({ track, isPlaying, progress, currentTime, duration, volume,
   );
 }
 
+// ─── Player Sheet — slide-up wrapper, completely separate from FullPlayer ──────
+// FullPlayer handles drag. This shell ONLY handles slide-up on mount.
+// Uses a portal-style fixed div with CSS keyframe on a DIFFERENT element.
+// The two never share a transform property.
+function PlayerSheet({ children, onClose }) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 200,
+      opacity: visible ? 1 : 0,
+      transition: 'opacity 0.25s ease',
+      pointerEvents: 'auto',
+    }}>
+      <div style={{ position: 'absolute', inset: 0 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+
+// ─── Album Detail ─────────────────────────────────────────────────────────────
+function AlbumDetail({ album, onClose, onArtistSelect, player }) {
+  const [tracks, setTracks] = useState([]);
+  const [colors, setColors] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
+  useEffect(() => {
+    getAlbumTracks(album.Id).then(r => { setTracks(r.Items || []); setLoading(false); });
+    extractColors(getImageUrl(album.Id, 'Primary', 400)).then(setColors);
+  }, [album.Id]);
+
+  const accent  = colors?.vibrant?.hex || '#7c3aed';
+  const primary = colors?.primary?.hex || '#0a0a14';
+  const imgUrl  = getImageUrl(album.Id, 'Primary', 600);
+  const total   = tracks.reduce((s, t) => s + (t.RunTimeTicks || 0), 0);
+
+  const playAll = (idx = 0) => {
+    onClose();
+    requestAnimationFrame(() => {
+      player.play(tracks, idx);
+      requestAnimationFrame(() => player.setPlayerExpanded(true));
+    });
+  };
+  const playShuffle = () => {
+    onClose();
+    requestAnimationFrame(() => {
+      player.play([...tracks].sort(() => Math.random() - 0.5), 0);
+      requestAnimationFrame(() => player.setPlayerExpanded(true));
+    });
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: '#080810', overflowY: 'auto', scrollbarWidth: 'none' }}>
+      <div style={{ position: 'relative', width: '100%', paddingTop: 'env(safe-area-inset-top)' }}>
+        <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+          <img src={imgUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.3, filter: 'blur(40px)', transform: 'scale(1.1)' }} />
+          <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg, ${primary}99 0%, #080810 100%)` }} />
+        </div>
+        <button onClick={onClose} style={{ position: 'absolute', top: 'calc(16px + env(safe-area-inset-top))', left: 16, zIndex: 10, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(10px)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          {Icons.chevronDown('#f1f5f9')}
+        </button>
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 24px 0' }}>
+          <div style={{ width: '65%', maxWidth: 260, aspectRatio: '1/1', borderRadius: 16, overflow: 'hidden', boxShadow: `0 24px 60px ${accent}44`, marginBottom: 20 }}>
+            <img src={imgUrl} alt={album.Name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#f8fafc', textAlign: 'center', letterSpacing: -0.5 }}>{album.Name}</h1>
+          <p onClick={() => onArtistSelect?.({ Id: album.AlbumArtistId, Name: album.AlbumArtist })}
+            style={{ margin: '6px 0 0', fontSize: 15, color: accent, fontWeight: 600, cursor: 'pointer' }}>{album.AlbumArtist}</p>
+          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#475569' }}>{album.ProductionYear && `${album.ProductionYear} · `}{tracks.length} songs · {fmtTicks(total)}</p>
+          <div style={{ display: 'flex', gap: 12, marginTop: 20, marginBottom: 8 }}>
+            <button onClick={() => playAll(0)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 28px', background: accent, border: 'none', borderRadius: 30, cursor: 'pointer', color: '#fff', fontSize: 15, fontWeight: 700, boxShadow: `0 4px 24px ${accent}55` }}>
+              {Icons.play('#fff')} Play
+            </button>
+            <button onClick={playShuffle} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 22px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 30, cursor: 'pointer', color: '#f1f5f9', fontSize: 15, fontWeight: 600 }}>
+              {Icons.shuffle('#f1f5f9')} Shuffle
+            </button>
+          </div>
+        </div>
+      </div>
+      <div style={{ padding: '16px 16px 120px' }}>
+        {loading ? <Loader /> : tracks.map((t, i) => (
+          <div key={t.Id} onClick={() => playAll(i)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 12px', borderRadius: 10, cursor: 'pointer', background: player.currentTrack?.Id === t.Id ? `${accent}18` : 'transparent', transition: 'background 0.15s' }}>
+            <div style={{ width: 24, textAlign: 'center', flexShrink: 0 }}>
+              {player.currentTrack?.Id === t.Id
+                ? <span style={{ color: accent, fontSize: 14 }}>▶</span>
+                : <span style={{ fontSize: 13, color: '#334155' }}>{t.IndexNumber || i + 1}</span>}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 15, fontWeight: 500, color: player.currentTrack?.Id === t.Id ? accent : '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.Name}</div>
+            </div>
+            <div style={{ fontSize: 12, color: '#334155', flexShrink: 0 }}>{fmtTicks(t.RunTimeTicks)}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Artist Detail ────────────────────────────────────────────────────────────
+function ArtistDetail({ artist, onClose, onAlbumSelect, player }) {
+  const [albums, setAlbums] = useState([]);
+  const [colors, setColors] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
+  useEffect(() => {
+    getArtistAlbums(artist.Id).then(r => {
+      setAlbums(r.Items || []);
+      setLoading(false);
+    });
+    // Try local artist image first, then Jellyfin image for color extraction
+    const localUrl = `/artists/${artist.Name}.jpg`;
+    const img = new Image();
+    img.onload  = () => extractColors(localUrl).then(setColors);
+    img.onerror = () => {
+      // Fall back to first album art for color if no local image
+      getArtistAlbums(artist.Id).then(r => {
+        if (r.Items?.[0]) extractColors(getImageUrl(r.Items[0].Id, 'Primary', 200)).then(setColors);
+      });
+    };
+    img.src = localUrl;
+  }, [artist.Id]);
+
+  const accent  = colors?.vibrant?.hex || '#7c3aed';
+  const primary = colors?.primary?.hex || '#0a0a14';
+
+  const playAll = async () => {
+    const r = await getArtistTracks(artist.Id, 100);
+    if (!r.Items?.length) return;
+    onClose();
+    requestAnimationFrame(() => {
+      player.play(r.Items, 0);
+      requestAnimationFrame(() => player.setPlayerExpanded(true));
+    });
+  };
+  const playShuffle = async () => {
+    const r = await getArtistTracks(artist.Id, 100);
+    if (!r.Items?.length) return;
+    onClose();
+    requestAnimationFrame(() => {
+      player.play([...r.Items].sort(() => Math.random() - 0.5), 0);
+      requestAnimationFrame(() => player.setPlayerExpanded(true));
+    });
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: '#080810', overflowY: 'auto', scrollbarWidth: 'none' }}>
+      {colors && <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 500, background: `radial-gradient(ellipse at 50% 0%, ${accent}18, transparent 70%)`, pointerEvents: 'none', zIndex: 0 }} />}
+
+      {/* Hero */}
+      <div style={{ position: 'relative', width: '100%', height: 420, overflow: 'hidden' }}>
+        <img src={`/artists/${artist.Name}.jpg`} alt={artist.Name}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }}
+          onError={e => { e.target.style.display = 'none'; }} />
+        <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to bottom, rgba(0,0,0,0) 30%, rgba(8,8,16,0.7) 65%, #080810 100%), linear-gradient(to right, rgba(8,8,16,0.4), transparent 40%)` }} />
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 120, background: `linear-gradient(to top, ${accent}18, transparent)`, mixBlendMode: 'screen' }} />
+        <button onClick={onClose} style={{ position: 'absolute', top: 'calc(14px + env(safe-area-inset-top))', left: 16, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}>
+          {Icons.chevronDown('#f1f5f9')}
+        </button>
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '0 20px 22px', zIndex: 5 }}>
+          <div style={{ width: 32, height: 3, borderRadius: 2, background: accent, marginBottom: 10, boxShadow: `0 0 12px ${accent}88` }} />
+          <h1 style={{ margin: 0, fontSize: 38, fontWeight: 900, color: '#fff', letterSpacing: -1.5, lineHeight: 1, textShadow: `0 2px 32px rgba(0,0,0,0.9)` }}>{artist.Name}</h1>
+          <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.55)', fontWeight: 500, letterSpacing: 0.5 }}>{albums.length} {albums.length === 1 ? 'ALBUM' : 'ALBUMS'}</p>
+        </div>
+      </div>
+
+      {/* Controls */}
+      <div style={{ padding: '20px 20px 12px', display: 'flex', gap: 12, position: 'relative', zIndex: 1 }}>
+        <button onClick={playAll} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '13px 30px', background: accent, border: 'none', borderRadius: 30, cursor: 'pointer', color: '#fff', fontSize: 15, fontWeight: 700, boxShadow: `0 4px 28px ${accent}66` }}>
+          {Icons.play('#fff')} Play All
+        </button>
+        <button onClick={playShuffle} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '13px 22px', background: 'rgba(255,255,255,0.08)', border: `1px solid ${accent}30`, borderRadius: 30, cursor: 'pointer', color: '#f1f5f9', fontSize: 15, fontWeight: 600 }}>
+          {Icons.shuffle('#f1f5f9')} Shuffle
+        </button>
+      </div>
+
+      {/* Albums */}
+      <div style={{ padding: '8px 20px 120px', position: 'relative', zIndex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <div style={{ width: 3, height: 16, borderRadius: 2, background: accent }} />
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>Discography</h2>
+        </div>
+        {loading ? <Loader /> : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+            {albums.map(album => (
+              <div key={album.Id} onClick={() => onAlbumSelect?.(album)} style={{ cursor: 'pointer' }}>
+                <div style={{ width: '100%', aspectRatio: '1/1', borderRadius: 12, overflow: 'hidden', background: '#1e1e2e', marginBottom: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
+                  <img src={getImageUrl(album.Id, 'Primary', 400)} alt={album.Name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none'; }} />
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9', lineHeight: 1.3 }}>{album.Name}</div>
+                <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>{album.ProductionYear || ''}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Nav ──────────────────────────────────────────────────────────────────────
 function NavBar({ active, onChange }) {
   const items = [
@@ -453,7 +641,7 @@ function NavBar({ active, onChange }) {
 }
 
 // ─── Home ─────────────────────────────────────────────────────────────────────
-function HomeView({ player }) {
+function HomeView({ player, onAlbumSelect, playAndExpand }) {
   const [recentPlayed, setRecentPlayed] = useState([]);
   const [recentAdded,  setRecentAdded]  = useState([]);
   const [playlists,    setPlaylists]    = useState([]);
@@ -488,10 +676,10 @@ function HomeView({ player }) {
   }, []);
 
   const handleGenre = async (name) => { setActiveGenre(name); const gt = await getByGenre(name, 8); setGenreTracks(gt.Items || []); };
-  const playTracks = (tracks, idx = 0) => player.play(tracks, idx);
-  const playAlbum  = async (album) => { const r = await getAlbumTracks(album.Id); if (r.Items?.length) player.play(r.Items, 0); };
-  const playRadio  = async () => { const r = await getVibeRadio(100); if (r.Items?.length) player.play(r.Items, 0); };
-  const playMix    = async (id) => { const r = await getInstantMix(id, 50); if (r.Items?.length) player.play(r.Items, 0); };
+  const playTracks = (tracks, idx = 0) => playAndExpand(tracks, idx);
+  const playAlbum  = async (album) => { const r = await getAlbumTracks(album.Id); if (r.Items?.length) playAndExpand(r.Items, 0); };
+  const playRadio  = async () => { const r = await getVibeRadio(100); if (r.Items?.length) playAndExpand(r.Items, 0); };
+  const playMix    = async (id) => { const r = await getInstantMix(id, 50); if (r.Items?.length) playAndExpand(r.Items, 0); };
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
@@ -504,17 +692,14 @@ function HomeView({ player }) {
         <p style={{ margin: '4px 0 0', color: '#475569', fontSize: 14 }}>Ready to vibe?</p>
       </div>
 
-      {(recentPlayed.length > 0 || recentAdded.length > 0) && (() => {
-        const list = recentPlayed.length > 0 ? recentPlayed : recentAdded;
-        return (
-          <div>
-            <SectionHeader title={recentPlayed.length > 0 ? 'Recently Played' : 'Jump Back In'} />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {list.map((t, i) => <TrackRow key={t.Id} track={t} index={i} onPlay={() => playTracks(list, i)} isActive={player.currentTrack?.Id === t.Id} />)}
-            </div>
+      {recentPlayed.length > 0 && (
+        <div>
+          <SectionHeader title="Recently Played" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {recentPlayed.map((t, i) => <TrackRow key={t.Id} track={t} index={i} onPlay={() => playTracks(recentPlayed, i)} isActive={player.currentTrack?.Id === t.Id} />)}
           </div>
-        );
-      })()}
+        </div>
+      )}
 
       {recentAdded.length > 0 && (
         <div>
@@ -533,8 +718,8 @@ function HomeView({ player }) {
       <div>
         <SectionHeader title="Stations" />
         <ScrollRow gap={12}>
-          <StationCard icon="🎤" title="Artist Mix" subtitle="Seeded from your library" accent="#7c3aed" onPlay={() => recentPlayed[0] && playMix(recentPlayed[0].Id)} />
-          <StationCard icon="💿" title="Album Mix" subtitle="Deep cuts & gems" accent="#2563eb" onPlay={() => topAlbums[0] && playMix(topAlbums[0].Id)} />
+          <StationCard icon="🎤" title="Artist Mix" subtitle="Pick your artists" accent="#7c3aed" onPlay={() => {}} />
+          <StationCard icon="💿" title="Album Mix" subtitle="Pick your albums" accent="#2563eb" onPlay={() => {}} />
           <StationCard icon="📻" title="Vibe Radio" subtitle="Everything, shuffled" accent="#d97706" onPlay={playRadio} />
           <StationCard icon="🔥" title="Top This Month" subtitle="Your most played" accent="#ef4444" onPlay={() => playTracks(mostPlayed, 0)} />
         </ScrollRow>
@@ -593,7 +778,7 @@ function HomeView({ player }) {
 }
 
 // ─── Search ───────────────────────────────────────────────────────────────────
-function SearchView({ player }) {
+function SearchView({ player, onAlbumSelect, onArtistSelect, playAndExpand }) {
   const [q, setQ] = useState('');
   const [results, setResults] = useState([]);
   const [genres, setGenres] = useState([]);
@@ -608,9 +793,10 @@ function SearchView({ player }) {
     debounce.current = setTimeout(async () => { const res = await search(q, 40); setResults(res.Items || []); setSearching(false); }, 350);
   }, [q]);
 
-  const tracks = results.filter(r => r.Type === 'Audio');
-  const albums = results.filter(r => r.Type === 'MusicAlbum');
-  const playAlbum = async (a) => { const r = await getAlbumTracks(a.Id); if (r.Items?.length) player.play(r.Items, 0); };
+  const tracks  = results.filter(r => r.Type === 'Audio');
+  const albums  = results.filter(r => r.Type === 'MusicAlbum');
+  const artists = results.filter(r => r.Type === 'MusicArtist');
+  const playAlbum = async (a) => { const r = await getAlbumTracks(a.Id); if (r.Items?.length) playAndExpand(r.Items, 0); };
 
   return (
     <div>
@@ -629,15 +815,32 @@ function SearchView({ player }) {
         </div>
       )}
       {searching && <Loader />}
-      {albums.length > 0 && <div style={{ marginBottom: 24 }}><SectionHeader title="Albums" /><ScrollRow>{albums.map(a => <AlbumCard key={a.Id} item={a} size={130} onPlay={() => playAlbum(a)} />)}</ScrollRow></div>}
-      {tracks.length > 0 && <div><SectionHeader title="Songs" /><div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>{tracks.map((t, i) => <TrackRow key={t.Id} track={t} index={i} onPlay={() => player.play(tracks, i)} isActive={player.currentTrack?.Id === t.Id} />)}</div></div>}
+      {artists.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <SectionHeader title="Artists" />
+          <ScrollRow gap={20}>
+            {artists.map(a => (
+              <div key={a.Id} onClick={() => onArtistSelect?.(a)} style={{ flexShrink: 0, width: 90, cursor: 'pointer', textAlign: 'center' }}>
+                <div style={{ width: 90, height: 90, borderRadius: '50%', overflow: 'hidden', background: '#1e1e2e', marginBottom: 8 }}>
+                  <img src={`/artists/${a.Name}.jpg`} alt={a.Name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }}
+                    onError={e => { e.target.src = `/artists/${encodeURIComponent(a.Name)}.jpg`; e.target.onerror = () => { e.target.style.display = 'none'; }; }} />
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: '#f1f5f9', lineHeight: 1.3 }}>{a.Name}</div>
+              </div>
+            ))}
+          </ScrollRow>
+        </div>
+      )}
+      {albums.length > 0 && <div style={{ marginBottom: 24 }}><SectionHeader title="Albums" /><ScrollRow>{albums.map(a => <AlbumCard key={a.Id} item={a} size={130} onPlay={() => onAlbumSelect ? onAlbumSelect(a) : playAlbum(a)} />)}</ScrollRow></div>}
+      {tracks.length > 0 && <div><SectionHeader title="Songs" /><div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>{tracks.map((t, i) => <TrackRow key={t.Id} track={t} index={i} onPlay={() => playAndExpand(tracks, i)} isActive={player.currentTrack?.Id === t.Id} />)}</div></div>}
       {q && !searching && results.length === 0 && <p style={{ color: '#475569', textAlign: 'center', marginTop: 48 }}>No results for "{q}"</p>}
     </div>
   );
 }
 
 // ─── Library ──────────────────────────────────────────────────────────────────
-function LibraryView({ player }) {
+function LibraryView({ player, onAlbumSelect, playAndExpand }) {
   const [tab, setTab] = useState('albums');
   const [albums, setAlbums] = useState([]);
   const [tracks, setTracks] = useState([]);
@@ -648,7 +851,7 @@ function LibraryView({ player }) {
     (tab === 'albums' ? getAlbums(300).then(r => setAlbums(r.Items || [])) : getAllTracks(500).then(r => setTracks(r.Items || []))).finally(() => setLoading(false));
   }, [tab]);
 
-  const playAlbum = async (a) => { const r = await getAlbumTracks(a.Id); if (r.Items?.length) player.play(r.Items, 0); };
+  const playAlbum = async (a) => { const r = await getAlbumTracks(a.Id); if (r.Items?.length) playAndExpand(r.Items, 0); };
 
   return (
     <div style={{ paddingBottom: 100 }}>
@@ -657,8 +860,8 @@ function LibraryView({ player }) {
         {['albums','tracks'].map(t => <button key={t} onClick={() => setTab(t)} style={{ padding: '7px 18px', borderRadius: 20, border: 'none', cursor: 'pointer', background: tab === t ? '#7c3aed' : 'rgba(255,255,255,0.07)', color: tab === t ? '#fff' : '#64748b', fontSize: 13, fontWeight: 500, transition: 'all 0.2s', textTransform: 'capitalize' }}>{t}</button>)}
       </div>
       {loading && <Loader />}
-      {tab === 'albums' && !loading && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 20 }}>{albums.map(a => <AlbumCard key={a.Id} item={a} size={140} onPlay={() => playAlbum(a)} />)}</div>}
-      {tab === 'tracks' && !loading && <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>{tracks.map((t, i) => <TrackRow key={t.Id} track={t} index={i} onPlay={() => player.play(tracks, i)} isActive={player.currentTrack?.Id === t.Id} />)}</div>}
+      {tab === 'albums' && !loading && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 20 }}>{albums.map(a => <AlbumCard key={a.Id} item={a} size={140} onPlay={() => onAlbumSelect ? onAlbumSelect(a) : playAlbum(a)} />)}</div>}
+      {tab === 'tracks' && !loading && <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>{tracks.map((t, i) => <TrackRow key={t.Id} track={t} index={i} onPlay={() => playAndExpand(tracks, i)} isActive={player.currentTrack?.Id === t.Id} />)}</div>}
     </div>
   );
 }
@@ -667,31 +870,67 @@ function LibraryView({ player }) {
 export default function App() {
   const player = useVibePlayer();
   const [view, setView] = useState('home');
+  const [stack, setStack] = useState([]);
+  const pushAlbum  = (album)  => setStack(s => [...s, { type: 'album',  data: album  }]);
+  const pushArtist = (artist) => setStack(s => [...s, { type: 'artist', data: artist }]);
+  const popStack   = ()       => setStack(s => s.slice(0, -1));
+  const top = stack[stack.length - 1] || null;
   const progress = player.duration > 0 ? player.currentTime / player.duration : 0;
+
+  // Normalize track objects for queue consistency
+  const normalizeTrack = (track) => ({
+    Id: track.Id,
+    Name: track.Name,
+    Album: track.Album,
+    AlbumId: track.AlbumId,
+    AlbumArtist: track.AlbumArtist || track.Artists?.[0],
+    Artists: track.Artists || [],
+    RunTimeTicks: track.RunTimeTicks || 0,
+  });
+
+  // Single unified playback entry point — Plexamp style
+  const playAndExpand = (tracks, index = 0) => {
+    const normalized = tracks.map(normalizeTrack);
+    player.play(normalized, index);
+    if (window.innerWidth < 768) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => player.setPlayerExpanded(true));
+      });
+    }
+  };
 
   return (
     <ColorProvider track={player.currentTrack}>
       <div style={{ minHeight: '100vh', background: '#080810', color: '#f1f5f9' }}>
         <style>{`*{scrollbar-width:none;-ms-overflow-style:none}*::-webkit-scrollbar{display:none}`}</style>
-        <NavBar active={view} onChange={setView} />
+        <NavBar active={view} onChange={(v) => { setStack([]); setView(v); }} />
         <main style={{ paddingTop: 'calc(72px + env(safe-area-inset-top))', paddingBottom: 120, paddingLeft: 20, paddingRight: 20, maxWidth: 760, margin: '0 auto', position: 'relative', zIndex: 1 }}>
-          {view === 'home'    && <HomeView    player={player} />}
-          {view === 'search'  && <SearchView  player={player} />}
-          {view === 'library' && <LibraryView player={player} />}
+          {view === 'home'    && <HomeView    player={player} onAlbumSelect={pushAlbum} playAndExpand={playAndExpand} />}
+          {view === 'search'  && <SearchView  player={player} onAlbumSelect={pushAlbum} onArtistSelect={pushArtist} playAndExpand={playAndExpand} />}
+          {view === 'library' && <LibraryView player={player} onAlbumSelect={pushAlbum} playAndExpand={playAndExpand} />}
         </main>
+        {top?.type === 'album' && (
+          <AlbumDetail album={top.data} onClose={popStack} onArtistSelect={pushArtist} player={player} />
+        )}
+        {top?.type === 'artist' && (
+          <ArtistDetail artist={top.data} onClose={popStack} onAlbumSelect={pushAlbum} player={player} />
+        )}
+
         {player.currentTrack && !player.playerExpanded && (
           <MiniPlayer track={player.currentTrack} isPlaying={player.isPlaying} progress={progress}
             onToggle={player.togglePlay} onNext={player.next} onPrev={player.prev}
             onExpand={() => player.setPlayerExpanded(true)} />
         )}
         {player.playerExpanded && (
-          <FullPlayer track={player.currentTrack} isPlaying={player.isPlaying} progress={progress}
-            currentTime={player.currentTime} duration={player.duration} volume={player.volume}
-            isShuffle={player.isShuffle} repeatMode={player.repeatMode} getWaveform={player.getWaveform}
-            onToggle={player.togglePlay} onNext={player.next} onPrev={player.prev}
-            onSeek={player.seek} onVolume={player.changeVolume}
-            onShuffle={player.toggleShuffle} onRepeat={player.cycleRepeat}
-            onClose={() => player.setPlayerExpanded(false)} />
+          <PlayerSheet onClose={() => player.setPlayerExpanded(false)}>
+            <FullPlayer track={player.currentTrack} isPlaying={player.isPlaying} progress={progress}
+              currentTime={player.currentTime} duration={player.duration} volume={player.volume}
+              isShuffle={player.isShuffle} repeatMode={player.repeatMode} getWaveform={player.getWaveform}
+              onToggle={player.togglePlay} onNext={player.next} onPrev={player.prev}
+              onSeek={player.seek} onVolume={player.changeVolume}
+              onShuffle={player.toggleShuffle} onRepeat={player.cycleRepeat}
+              onClose={() => player.setPlayerExpanded(false)} />
+          </PlayerSheet>
         )}
       </div>
     </ColorProvider>

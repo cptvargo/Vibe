@@ -19,7 +19,8 @@ async function request(path) {
 
 // ── Library ───────────────────────────────────
 export async function getRecentlyPlayed(limit = 20) {
-  return request(`/Users/${USER_ID}/Items?SortBy=DatePlayed&SortOrder=Descending&IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId`);
+  // IsPlayed=true ensures only tracks the user has actually played come back
+  return request(`/Users/${USER_ID}/Items?SortBy=DatePlayed&SortOrder=Descending&IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId&IsPlayed=true&Filters=IsPlayed`);
 }
 
 export async function getRecentlyAdded(limit = 20) {
@@ -65,7 +66,18 @@ export async function getAlbumTracks(albumId) {
 }
 
 export async function getArtists(limit = 200) {
-  return request(`/Artists?UserId=${USER_ID}&Limit=${limit}&Fields=PrimaryImageAspectRatio&SortBy=SortName`);
+  return request(`/Artists?UserId=${USER_ID}&Limit=${limit}&Fields=PrimaryImageAspectRatio,Overview&SortBy=SortName`);
+}
+
+export function getArtistImageUrl(artistId, size = 200) {
+  if (!artistId) return null;
+  // Jellyfin stores artist images via the Items endpoint, not Artists endpoint
+  return `${BASE_URL}/Items/${artistId}/Images/Primary?fillHeight=${size}&fillWidth=${size}&quality=90&api_key=${TOKEN}`;
+}
+
+export function getArtistBackdropUrl(artistId) {
+  if (!artistId) return null;
+  return `${BASE_URL}/Items/${artistId}/Images/Backdrop?fillWidth=800&quality=85&api_key=${TOKEN}`;
 }
 
 export async function getAllTracks(limit = 500) {
@@ -83,7 +95,14 @@ export async function getVibeRadio(limit = 100) {
 
 // ── Search ────────────────────────────────────
 export async function search(query, limit = 40) {
-  return request(`/Users/${USER_ID}/Items?SearchTerm=${encodeURIComponent(query)}&IncludeItemTypes=Audio,MusicAlbum,MusicArtist&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId`);
+  // Search tracks, albums AND artists
+  const [items, artists] = await Promise.all([
+    request(`/Users/${USER_ID}/Items?SearchTerm=${encodeURIComponent(query)}&IncludeItemTypes=Audio,MusicAlbum&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId`),
+    request(`/Artists?UserId=${USER_ID}&SearchTerm=${encodeURIComponent(query)}&Limit=10&Fields=PrimaryImageAspectRatio`),
+  ]);
+  // Merge artists (marked as MusicArtist type) into results
+  const artistItems = (artists.Items || []).map(a => ({ ...a, Type: 'MusicArtist' }));
+  return { Items: [...artistItems, ...(items.Items || [])] };
 }
 
 // ── Streaming & Images ────────────────────────
@@ -132,6 +151,32 @@ export async function reportPlaybackStopped(itemId, positionTicks) {
     headers: headers(),
     body: JSON.stringify({ ItemId: itemId, PositionTicks: positionTicks }),
   }).catch(() => {});
+}
+
+export async function getAlbumTracks_forMix(albumId, limit = 50) {
+  return request(`/Users/${USER_ID}/Items?ParentId=${albumId}&IncludeItemTypes=Audio&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId&SortBy=IndexNumber`);
+}
+
+export async function getArtistTracks(artistId, limit = 30) {
+  return request(`/Users/${USER_ID}/Items?ArtistIds=${artistId}&IncludeItemTypes=Audio&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId&SortBy=Random&Limit=${limit}`);
+}
+
+export { USER_ID, request };
+
+export async function getArtistDetails(artistId) {
+  return request(`/Users/${USER_ID}/Items/${artistId}`);
+}
+
+export async function getArtistAlbums(artistId) {
+  return request(`/Users/${USER_ID}/Items?AlbumArtistIds=${artistId}&IncludeItemTypes=MusicAlbum&Recursive=true&Fields=PrimaryImageAspectRatio&SortBy=ProductionYear&SortOrder=Descending`);
+}
+
+export async function getArtistSingles(artistId) {
+  return request(`/Users/${USER_ID}/Items?ArtistIds=${artistId}&IncludeItemTypes=Audio&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId&SortBy=ProductionYear&SortOrder=Descending&Limit=50`);
+}
+
+export async function searchArtists(query) {
+  return request(`/Artists?UserId=${USER_ID}&SearchTerm=${encodeURIComponent(query)}&Fields=PrimaryImageAspectRatio&Limit=20`);
 }
 
 export async function markPlayed(itemId) {
