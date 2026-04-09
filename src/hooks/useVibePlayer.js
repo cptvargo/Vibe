@@ -39,9 +39,19 @@ export function useVibePlayer() {
   const cycleRepeat   = useCallback(() => vibePlayer.cycleRepeat(), []);
   const getWaveform   = useCallback(() => vibePlayer.getWaveformData(), []);
 
+  const playAt = useCallback(async (index) => {
+    const { queue } = store;
+    if (index < 0 || index >= queue.length) return;
+    vibePlayer.queueIndex = index;
+    await vibePlayer.playTrack(queue[index]);
+  }, [store]);
+
   return {
     ...store,
     play, togglePlay, next, prev, seek,
     changeVolume, toggleShuffle, cycleRepeat, getWaveform,
+    playAt,
+    queue:      store.queue,
+    queueIndex: store.queueIndex,
   };
 }

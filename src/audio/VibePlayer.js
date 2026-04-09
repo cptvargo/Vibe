@@ -64,10 +64,19 @@ class VibePlayer extends EventTarget {
       const audio = this._activeAudio();
       if (!audio || audio.paused) return;
       this.currentTime = audio.currentTime;
-      this.duration    = audio.duration || 0;
+
+      // Guard: only use duration if fully loaded and valid
+      const dur = audio.duration;
+      if (!dur || !isFinite(dur) || dur < 1) return;
+      this.duration = dur;
+
       this._emit('progress', { currentTime: this.currentTime, duration: this.duration });
 
       const remaining = this.duration - this.currentTime;
+
+      // Guard: don't trigger fade/preload unless song has actually started
+      if (this.currentTime < 2) return;
+
       if (remaining <= PRELOAD_BEFORE && !this._preloaded && this._hasNext()) {
         this._preloadNext();
       }
@@ -78,6 +87,26 @@ class VibePlayer extends EventTarget {
 
     this._audioA.addEventListener('ended', () => { if (this.activeSlot === 'A' && !this._isFading) this.next(); });
     this._audioB.addEventListener('ended', () => { if (this.activeSlot === 'B' && !this._isFading) this.next(); });
+
+    // Resume AudioContext when app returns to foreground
+    const resumeCtx = async () => {
+      if (this.ctx && this.ctx.state !== 'running') {
+        try { await this.ctx.resume(); } catch(e) {}
+      }
+      // Also resume audio element if it was playing before
+      if (this.isPlaying) {
+        const audio = this._activeAudio();
+        if (audio && audio.paused) {
+          try { await audio.play(); } catch(e) {}
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') resumeCtx();
+    });
+    window.addEventListener('focus', resumeCtx);
+    window.addEventListener('pageshow', resumeCtx);
   }
 
   _activeAudio() { return this.activeSlot === 'A' ? this._audioA : this._audioB; }
@@ -122,7 +151,13 @@ class VibePlayer extends EventTarget {
     const gain  = this._activeGain();
 
     // Try direct stream first, fallback to transcoded
-    audio.src = getStreamUrl(track.Id);
+    // Hard reset — prevents browser reusing stale audio buffer
+    audio.pause();
+    audio.src = '';
+    audio.load();
+
+    audio.src = getStreamUrl(track.Id) + `&t=${Date.now()}`;
+    audio.load();
     gain.gain.cancelScheduledValues(this.ctx.currentTime);
     gain.gain.setValueAtTime(this.volume, this.ctx.currentTime);
 
@@ -152,6 +187,10 @@ class VibePlayer extends EventTarget {
   }
 
   async next() {
+    // Reset fade state so manual next always works
+    this._isFading  = false;
+    this._preloaded = false;
+
     const idx = this._getNextIndex();
     if (idx === -1) { this.isPlaying = false; this._emit('playback-state', { isPlaying: false }); return; }
     this.queueIndex = idx;
@@ -159,8 +198,13 @@ class VibePlayer extends EventTarget {
   }
 
   async prev() {
+    // Always cancel any in-progress fade so prev works reliably
+    this._isFading  = false;
+    this._preloaded = false;
+
     if (this.currentTime > 3) {
-      this._activeAudio().currentTime = 0; return;
+      this._activeAudio().currentTime = 0;
+      return;
     }
     const idx = Math.max(0, this.queueIndex - 1);
     this.queueIndex = idx;
@@ -208,7 +252,11 @@ class VibePlayer extends EventTarget {
     if (nextIdx === -1) return;
     const nextTrack = this.queue[nextIdx];
     const nextAudio = this.activeSlot === 'A' ? this._audioB : this._audioA;
-    nextAudio.src   = getStreamUrl(nextTrack.Id);
+    nextAudio.pause();
+    nextAudio.src = '';
+    nextAudio.load();
+
+    nextAudio.src = getStreamUrl(nextTrack.Id) + `&t=${Date.now()}`;
     nextAudio.load();
   }
 
@@ -224,9 +272,13 @@ class VibePlayer extends EventTarget {
     const nextAudio = nextSlot === 'A' ? this._audioA : this._audioB;
     const now       = this.ctx.currentTime;
 
-    if (!nextAudio.src || !nextAudio.src.includes(nextTrack.Id)) {
-      nextAudio.src = getStreamUrl(nextTrack.Id);
-    }
+    // Hard reset — always assign correct source, never reuse stale buffer
+    nextAudio.pause();
+    nextAudio.src = '';
+    nextAudio.load();
+
+    nextAudio.src = getStreamUrl(nextTrack.Id) + `&t=${Date.now()}`;
+    nextAudio.load();
 
     try { await nextAudio.play(); } catch(e) { return; }
 

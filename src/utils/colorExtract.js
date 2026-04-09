@@ -60,31 +60,39 @@ export async function extractColors(imageUrl) {
   });
 }
 
-// Smart vibrant finder — progressively relaxes constraints until it finds something
+// Smart vibrant finder — picks the most visually striking color
 function findVibrant(palette) {
-  // Pass 1: ideal — saturated, mid-lightness
-  let v = palette.find(c => c.hsl.s > 0.4 && c.hsl.l > 0.2 && c.hsl.l < 0.85);
-  if (v) return v;
+  // Score each color: reward saturation and penalize extremes
+  const scored = palette.map(c => {
+    const { s, l } = c.hsl;
+    // Skip near-black, near-white, and near-gray
+    if (l < 0.08 || l > 0.92 || s < 0.06) return { ...c, score: -1 };
+    // Ideal zone: saturated, not too dark, not too light
+    const satScore  = s * 2;                          // more saturated = better
+    const lightPen  = Math.abs(l - 0.45) * 1.2;      // penalize away from 0.45
+    const score     = satScore - lightPen;
+    return { ...c, score };
+  });
 
-  // Pass 2: relax saturation threshold
-  v = palette.find(c => c.hsl.s > 0.2 && c.hsl.l > 0.15 && c.hsl.l < 0.9);
-  if (v) return v;
+  const best = scored
+    .filter(c => c.score > 0)
+    .sort((a, b) => b.score - a.score)[0];
 
-  // Pass 3: any color that isn't pure black/white/gray
-  v = palette.find(c => c.hsl.s > 0.08 && c.hsl.l > 0.1);
-  if (v) return v;
+  if (best) return best;
 
-  // Pass 4: sort by saturation and just take the most saturated
-  const bySaturation = [...palette].sort((a, b) => b.hsl.s - a.hsl.s);
-  return bySaturation[0] || null;
+  // Fallback: most saturated visible color
+  return [...palette]
+    .filter(c => c.hsl.l > 0.08 && c.hsl.l < 0.92)
+    .sort((a, b) => b.hsl.s - a.hsl.s)[0] || null;
 }
 
-// If album art is truly monochrome/black, boost the primary color slightly
-// so the waveform at least has some visible tint vs pure black
+// Boost color to ensure it's always visible as an accent
+// Minimum saturation 0.55, lightness between 0.45-0.65
 function boostColor(color) {
-  const { r, g, b, hsl } = color;
-  // Shift lightness up so it's at least somewhat visible
-  const boosted = hslToRgb(hsl.h, Math.max(hsl.s, 0.5), 0.55);
+  const { hsl } = color;
+  const s = Math.max(hsl.s, 0.55);
+  const l = Math.min(Math.max(hsl.l, 0.45), 0.65);
+  const boosted = hslToRgb(hsl.h, s, l);
   return {
     ...boosted,
     hex: rgbToHex(boosted.r, boosted.g, boosted.b),
