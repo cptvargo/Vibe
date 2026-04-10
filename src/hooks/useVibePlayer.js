@@ -29,20 +29,12 @@ export function useVibePlayer() {
 
   useEffect(() => { vibePlayer.setVolume(store.volume); }, [store.volume]);
 
-  const play         = useCallback((tracks, idx = 0) => {
+  const play = useCallback((tracks, idx = 0) => {
     const nextTrack = tracks[idx];
-
-    // Preload artwork so image never pops in blank
-    if (nextTrack?.AlbumId || nextTrack?.Id) {
-      const img = new window.Image();
-      img.src = `${window.location.origin}/Items/${nextTrack.AlbumId || nextTrack.Id}/Images/Primary?fillHeight=400&fillWidth=400`;
-    }
-
-    // Immediate UI update — before audio engine fires any events
+    // Immediate UI update — no waiting for events
     store.setCurrentTrack(nextTrack);
     store.setQueue(tracks, idx);
-
-    // Audio engine starts after UI is already correct
+    store.setIsPlaying(true);
     vibePlayer.setQueue(tracks, idx);
   }, []);
   const togglePlay   = useCallback(() => vibePlayer.togglePlay(), []);
