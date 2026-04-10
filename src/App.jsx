@@ -738,7 +738,6 @@ function useDragToClose(onClose, scrollRef) {
     dragging.current = false;
     startY.current = e.clientY;
     startTime.current = Date.now();
-    elRef.current?.setPointerCapture(e.pointerId);
   }, []);
 
   const onPointerMove = useCallback(
@@ -746,12 +745,23 @@ function useDragToClose(onClose, scrollRef) {
       const delta = e.clientY - startY.current;
       const scrollTop = scrollRef.current?.scrollTop ?? 0;
 
-      if (delta > 0 && (scrollTop <= 0 || dragging.current)) {
-        dragging.current = true;
-        cancelAnimationFrame(frameRef.current);
-        frameRef.current = requestAnimationFrame(() => setStyle(delta));
+      const DRAG_THRESHOLD = 12;
+
+      // Only START drag if:
+      // - pulling DOWN
+      // - at top
+      // - passed threshold
+      if (!dragging.current) {
+        if (delta > DRAG_THRESHOLD && scrollTop <= 0) {
+          dragging.current = true;
+        } else {
+          return; // let scroll happen naturally
+        }
       }
-      // If not dragging — do nothing, let native scroll work
+
+      // Once dragging has started, continue freely
+      cancelAnimationFrame(frameRef.current);
+      frameRef.current = requestAnimationFrame(() => setStyle(delta));
     },
     [setStyle, scrollRef],
   );
@@ -930,10 +940,6 @@ function FullPlayer({
   return (
     <div
       ref={elRef}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
       style={{
         position: "fixed",
         inset: 0,
@@ -943,7 +949,7 @@ function FullPlayer({
         willChange: "transform",
         overscrollBehavior: "contain",
         contain: "paint",
-        touchAction: "none",
+        touchAction: "pan-y",
         animation: "vibeSlideUp 0.38s cubic-bezier(0.32,0.72,0,1) both",
         // 'both' fill mode ensures translateY(100%) before animation starts — no library peek
       }}
@@ -1000,7 +1006,7 @@ function FullPlayer({
           WebkitOverflowScrolling: "touch",
           scrollbarWidth: "none",
           msOverflowStyle: "none",
-          touchAction: "pan-x",
+          touchAction: "pan-y",
           paddingTop: "env(safe-area-inset-top)",
           paddingBottom: "env(safe-area-inset-bottom)",
         }}
@@ -1042,6 +1048,10 @@ function FullPlayer({
 
           {/* Album Art — breathes when playing */}
           <div
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
             style={{
               width: "100%",
               aspectRatio: "1/1",
@@ -1052,6 +1062,7 @@ function FullPlayer({
               marginBottom: 28,
               transform: isPlaying ? "scale(1)" : "scale(0.95)",
               transition: "transform 0.5s cubic-bezier(0.34,1.56,0.64,1)",
+              touchAction: "none",
             }}
           >
             <AlbumArt
@@ -2634,7 +2645,13 @@ function HomeView({
           getAllGenres(),
         ]);
         setRecentPlayed(rp.Items || []);
-        setRecentAdded(ra.Items || []);
+        const uniqueAlbums = [
+          ...new Map(
+            (ra.Items || []).map((t) => [t.AlbumId || t.Album, t]),
+          ).values(),
+        ];
+
+        setRecentAdded(uniqueAlbums);
         setPlaylists(pl.Items || []);
         setTopAlbums(ta.Items || []);
         setRecentAlbums(ral.Items || []);
