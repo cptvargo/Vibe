@@ -10,12 +10,14 @@ import { ArtistDetail }  from './features/library/ArtistDetail';
 import { TrackListPage } from './features/library/TrackListPage';
 import { MiniPlayer }    from './features/player/MiniPlayer';
 import { Player }        from './features/player/Player';
+import { MixBuilder }    from './features/mix/MixBuilder';
 import { recordPlay }    from './utils/hotTracks';
 
 export default function App() {
   const player = useVibePlayer();
-  const [view,  setView]  = useState('home');
-  const [stack, setStack] = useState([]);
+  const [view,    setView]    = useState('home');
+  const [stack,   setStack]   = useState([]);
+  const [mixMode, setMixMode] = useState(null); // 'artist' | 'album' | null
 
   const [recentArtists, setRecentArtists] = useState(() => {
     try { return JSON.parse(localStorage.getItem('vibe_recent_artists') || '[]'); }
@@ -45,6 +47,11 @@ export default function App() {
     const normalized = tracks.map(normalizeTrack);
     if (normalized[index]?.Id) recordPlay(normalized[index].Id);
     player.play(normalized, index);
+    // Track the playing track's artist so Recent Artists updates on play, not just on nav
+    const t = tracks[index];
+    const artistId   = t?.ArtistItems?.[0]?.Id || t?.AlbumArtistIds?.[0];
+    const artistName = t?.AlbumArtist || t?.Artists?.[0];
+    if (artistId && artistName) trackArtistView({ Id: artistId, Name: artistName });
     if (window.innerWidth < 768) player.setPlayerExpanded(true);
   };
 
@@ -67,6 +74,7 @@ export default function App() {
           <HomeView
             player={player} onAlbumSelect={pushAlbum} onArtistSelect={pushArtist}
             playAndExpand={playAndExpand} recentArtists={recentArtists}
+            onOpenMix={setMixMode}
             onViewMostPlayed={(tracks) => setStack((s) => [...s, { type: 'mostplayed', data: { title: `Most Played · ${new Date().toLocaleString('default', { month: 'long' })}`, tracks } }])}
             onViewHistory={(tracks) => setStack((s) => [...s, { type: 'history', data: { title: 'History', tracks } }])}
           />
@@ -74,6 +82,16 @@ export default function App() {
         {view === 'search'  && <SearchView  player={player} onAlbumSelect={pushAlbum} onArtistSelect={pushArtist} playAndExpand={playAndExpand} />}
         {view === 'library' && <LibraryView player={player} onAlbumSelect={pushAlbum} playAndExpand={playAndExpand} />}
       </main>
+
+      {/* Mix builder — rendered at root level so it sits above MiniPlayer */}
+      {mixMode && (
+        <MixBuilder
+          mode={mixMode}
+          recentArtists={recentArtists}
+          onPlay={(tracks) => { playAndExpand(tracks, 0); setMixMode(null); }}
+          onClose={() => setMixMode(null)}
+        />
+      )}
 
       {/* Overlay stack */}
       {top?.type === 'album'      && <AlbumDetail   album={top.data}  onClose={popStack} onArtistSelect={pushArtist} player={player} />}

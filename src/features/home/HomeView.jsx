@@ -13,7 +13,7 @@ import { ScrollRow, SectionHeader } from '../../components/Shelf';
 import { Loader } from '../../components/Loader';
 import { MostPlayedSection } from './MostPlayedSection';
 
-export function HomeView({ player, onAlbumSelect, onArtistSelect, playAndExpand, recentArtists = [], onViewMostPlayed, onViewHistory }) {
+export function HomeView({ player, onAlbumSelect, onArtistSelect, playAndExpand, recentArtists = [], onOpenMix, onViewMostPlayed, onViewHistory }) {
   const [recentPlayed, setRecentPlayed] = useState([]);
   const [recentAdded,  setRecentAdded]  = useState([]);
   const [playlists,    setPlaylists]    = useState([]);
@@ -168,8 +168,8 @@ export function HomeView({ player, onAlbumSelect, onArtistSelect, playAndExpand,
       <div>
         <SectionHeader title="Stations" />
         <ScrollRow gap={12}>
-          <StationCard icon={<><path d="M12 1a3 3 0 0 1 3 3v8a3 3 0 0 1-6 0V4a3 3 0 0 1 3-3z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" /></>} title="Artist Mix" subtitle="Pick your artists" accent="#7c3aed" onPlay={() => {}} />
-          <StationCard icon={<><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" /></>} title="Album Mix" subtitle="Pick your albums" accent="#2563eb" onPlay={() => {}} />
+          <StationCard icon={<><path d="M12 1a3 3 0 0 1 3 3v8a3 3 0 0 1-6 0V4a3 3 0 0 1 3-3z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" /></>} title="Artist Mix" subtitle="Pick your artists" accent="#7c3aed" onPlay={() => onOpenMix('artist')} />
+          <StationCard icon={<><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" /></>} title="Album Mix" subtitle="Full albums, back-to-back" accent="#2563eb" onPlay={() => onOpenMix('album')} />
           <StationCard icon={<><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 10 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2" /></>} title="Vibe Radio" subtitle="Everything, shuffled" accent="#d97706" onPlay={playRadio} />
           <StationCard icon={<><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></>} title="Top This Month" subtitle="Your most played" accent="#ef4444" onPlay={() => playTracks(mostPlayed, 0)} />
         </ScrollRow>
@@ -239,6 +239,7 @@ export function HomeView({ player, onAlbumSelect, onArtistSelect, playAndExpand,
           <p style={{ fontSize: 16, fontWeight: 500, color: '#475569' }}>Your library is empty</p>
         </div>
       )}
+
     </div>
   );
 }
