@@ -1,5 +1,9 @@
 const cache = new Map();
 
+export function getCachedColors(imageUrl) {
+  return imageUrl ? cache.get(imageUrl) ?? null : null;
+}
+
 export async function extractColors(imageUrl) {
   if (!imageUrl) return defaultColors();
   if (cache.has(imageUrl)) return cache.get(imageUrl);
@@ -149,7 +153,7 @@ function hslToRgb(h, s, l) {
 function defaultColors() {
   return {
     primary: { r: 30, g: 30, b: 40, hex: '#1e1e28', hsl: { h: 0.7, s: 0.1, l: 0.1 } },
-    vibrant: { r: 124, g: 58, b: 237, hex: '#7c3aed', hsl: { h: 0.7, s: 0.8, l: 0.6 } },
+    vibrant: null,
     isDark: true,
     palette: [],
   };

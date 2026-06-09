@@ -1,0 +1,14 @@
+@keyframes vibeSlideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+:root {
+  --color-brand:   #7c3aed;
+  --color-bg:      #080810;
+  --color-surface: #0a0a14;
+  --color-text:    #f1f5f9;
+  --color-muted:   #475569;
+  /* --color-accent defaults to brand; overridden at runtime by useVibePlayer on playback start */
+  --color-accent:  #7c3aed;
+}

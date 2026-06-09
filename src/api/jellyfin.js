@@ -19,7 +19,6 @@ async function request(path) {
 
 // ── Library ───────────────────────────────────
 export async function getRecentlyPlayed(limit = 20) {
-  // IsPlayed=true ensures only tracks the user has actually played come back
   return request(`/Users/${USER_ID}/Items?SortBy=DatePlayed&SortOrder=Descending&IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId&IsPlayed=true&Filters=IsPlayed`);
 }
 
@@ -44,8 +43,6 @@ export async function getPlayHistory(limit = 50) {
 }
 
 export async function getMostPlayedThisMonth(limit = 20) {
-  const start = new Date();
-  start.setDate(1); start.setHours(0, 0, 0, 0);
   return request(`/Users/${USER_ID}/Items?SortBy=PlayCount&SortOrder=Descending&IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId`);
 }
 
@@ -71,7 +68,6 @@ export async function getArtists(limit = 200) {
 
 export function getArtistImageUrl(artistId, size = 200) {
   if (!artistId) return null;
-  // Jellyfin stores artist images via the Items endpoint, not Artists endpoint
   return `${BASE_URL}/Items/${artistId}/Images/Primary?fillHeight=${size}&fillWidth=${size}&quality=90&api_key=${TOKEN}`;
 }
 
@@ -95,24 +91,20 @@ export async function getVibeRadio(limit = 100) {
 
 // ── Search ────────────────────────────────────
 export async function search(query, limit = 40) {
-  // Search tracks, albums AND artists
   const [items, artists] = await Promise.all([
     request(`/Users/${USER_ID}/Items?SearchTerm=${encodeURIComponent(query)}&IncludeItemTypes=Audio,MusicAlbum&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId`),
     request(`/Artists?UserId=${USER_ID}&SearchTerm=${encodeURIComponent(query)}&Limit=10&Fields=PrimaryImageAspectRatio`),
   ]);
-  // Merge artists (marked as MusicArtist type) into results
   const artistItems = (artists.Items || []).map(a => ({ ...a, Type: 'MusicArtist' }));
   return { Items: [...artistItems, ...(items.Items || [])] };
 }
 
 // ── Streaming & Images ────────────────────────
 export function getStreamUrl(itemId) {
-  // Static direct stream for M4A/MP3/FLAC — no transcoding needed
   return `${BASE_URL}/Audio/${itemId}/stream?static=true&api_key=${TOKEN}&UserId=${USER_ID}&Container=m4a,mp3,flac,wav,aac,ogg`;
 }
 
 export function getStreamUrlFallback(itemId) {
-  // Transcoded AAC stream fallback
   return `${BASE_URL}/Audio/${itemId}/stream?api_key=${TOKEN}&UserId=${USER_ID}&AudioCodec=aac&Container=ts&MaxStreamingBitrate=140000000`;
 }
 
@@ -122,7 +114,6 @@ export function getImageUrl(itemId, type = 'Primary', size = 400) {
 }
 
 export function getAlbumImageUrl(track, size = 400) {
-  // Try album image first, fall back to track image
   const albumId = track?.AlbumId || track?.ParentId;
   if (albumId) return getImageUrl(albumId, 'Primary', size);
   return getImageUrl(track?.Id, 'Primary', size);
@@ -131,37 +122,32 @@ export function getAlbumImageUrl(track, size = 400) {
 // ── Playback Reporting ────────────────────────
 export async function reportPlaybackStart(itemId) {
   return fetch(`${BASE_URL}/Sessions/Playing`, {
-    method: 'POST',
-    headers: headers(),
+    method: 'POST', headers: headers(),
     body: JSON.stringify({ ItemId: itemId, CanSeek: true, IsPaused: false }),
   }).catch(() => {});
 }
 
 export async function reportPlaybackProgress(itemId, positionTicks) {
   return fetch(`${BASE_URL}/Sessions/Playing/Progress`, {
-    method: 'POST',
-    headers: headers(),
+    method: 'POST', headers: headers(),
     body: JSON.stringify({ ItemId: itemId, PositionTicks: positionTicks }),
   }).catch(() => {});
 }
 
 export async function reportPlaybackStopped(itemId, positionTicks) {
   return fetch(`${BASE_URL}/Sessions/Playing/Stopped`, {
-    method: 'POST',
-    headers: headers(),
+    method: 'POST', headers: headers(),
     body: JSON.stringify({ ItemId: itemId, PositionTicks: positionTicks }),
   }).catch(() => {});
 }
 
-export async function getAlbumTracks_forMix(albumId, limit = 50) {
+export async function getAlbumTracks_forMix(albumId) {
   return request(`/Users/${USER_ID}/Items?ParentId=${albumId}&IncludeItemTypes=Audio&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId&SortBy=IndexNumber`);
 }
 
 export async function getArtistTracks(artistId, limit = 30) {
   return request(`/Users/${USER_ID}/Items?ArtistIds=${artistId}&IncludeItemTypes=Audio&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId&SortBy=Random&Limit=${limit}`);
 }
-
-export { USER_ID, request };
 
 export async function getArtistDetails(artistId) {
   return request(`/Users/${USER_ID}/Items/${artistId}`);
@@ -181,7 +167,8 @@ export async function searchArtists(query) {
 
 export async function markPlayed(itemId) {
   return fetch(`${BASE_URL}/Users/${USER_ID}/PlayedItems/${itemId}`, {
-    method: 'POST',
-    headers: headers(),
+    method: 'POST', headers: headers(),
   }).catch(() => {});
 }
+
+export { USER_ID, request };
