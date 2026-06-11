@@ -5,6 +5,28 @@ import { fmtTicks } from '../../utils/format';
 import { Icons } from '../../components/Icons';
 import { Loader } from '../../components/Loader';
 import { PageTransition } from '../../components/PageTransition';
+import { isFire, toggleFire } from '../../utils/fireSongs';
+
+function AlbumTrackRow({ track, index, accent, isActive, onPlay }) {
+  const [fire, setFire] = useState(() => isFire(track.Id));
+  return (
+    <div onClick={onPlay} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 12px', borderRadius: 10, cursor: 'pointer', background: isActive ? `${accent}18` : 'transparent', transition: 'background 0.15s' }}>
+      <div style={{ width: 24, textAlign: 'center', flexShrink: 0 }}>
+        {isActive ? <span style={{ color: accent, fontSize: 14 }}>▶</span> : <span style={{ fontSize: 13, color: '#334155' }}>{track.IndexNumber || index + 1}</span>}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 15, fontWeight: 500, color: isActive ? '#fff' : '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.Name}</div>
+      </div>
+      <button
+        onClick={(e) => { e.stopPropagation(); const nowFire = toggleFire(track); setFire(nowFire); }}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', flexShrink: 0, opacity: fire ? 1 : 0.3, transition: 'opacity 0.15s, transform 0.15s', transform: fire ? 'scale(1.15)' : 'scale(1)' }}
+      >
+        {Icons.fire(fire)}
+      </button>
+      <div style={{ fontSize: 12, color: '#334155', flexShrink: 0 }}>{fmtTicks(track.RunTimeTicks)}</div>
+    </div>
+  );
+}
 
 export function AlbumDetail({ album, onClose, onArtistSelect, player }) {
   const [tracks,  setTracks]  = useState([]);
@@ -64,19 +86,7 @@ export function AlbumDetail({ album, onClose, onArtistSelect, player }) {
             </div>
           </div>
           <div style={{ padding: '16px 16px 120px' }}>
-            {loading ? <Loader /> : tracks.map((t, i) => (
-              <div key={t.Id} onClick={() => playAll(i)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 12px', borderRadius: 10, cursor: 'pointer', background: player.currentTrack?.Id === t.Id ? `${accent}18` : 'transparent', transition: 'background 0.15s' }}>
-                <div style={{ width: 24, textAlign: 'center', flexShrink: 0 }}>
-                  {player.currentTrack?.Id === t.Id
-                    ? <span style={{ color: accent, fontSize: 14 }}>▶</span>
-                    : <span style={{ fontSize: 13, color: '#334155' }}>{t.IndexNumber || i + 1}</span>}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 15, fontWeight: 500, color: player.currentTrack?.Id === t.Id ? '#fff' : '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.Name}</div>
-                </div>
-                <div style={{ fontSize: 12, color: '#334155', flexShrink: 0 }}>{fmtTicks(t.RunTimeTicks)}</div>
-              </div>
-            ))}
+            {loading ? <Loader /> : tracks.map((t, i) => <AlbumTrackRow key={t.Id} track={t} index={i} accent={accent} isActive={player.currentTrack?.Id === t.Id} onPlay={() => playAll(i)} />)}
           </div>
         </div>
       </PageTransition>

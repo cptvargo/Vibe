@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo, useCallback } from 'react';
+import { useRef, useEffect, useMemo, useCallback, useState } from 'react';
 import { useAccent } from './useAccent';
 import { useDragToClose } from './useDragToClose';
 import { controlledAccent } from '../../utils/colorUtils';
@@ -6,10 +6,13 @@ import { Icons } from '../../components/Icons';
 import { QueueTrackList } from './QueueTrackList';
 import { fmtTime } from '../../utils/format';
 import { getAlbumImageUrl } from '../../api/jellyfin';
+import { isFire, toggleFire } from '../../utils/fireSongs';
 
 export function Player({ track, isPlaying, progress, currentTime, duration, volume, isShuffle, repeatMode, onToggle, onNext, onPrev, onSeek, onVolume, onShuffle, onRepeat, onClose, getWaveform, queue, queueIndex, onPlayAt }) {
   const rawAccent = useAccent();
   const accent    = controlledAccent(rawAccent);
+  const [fire, setFire] = useState(() => isFire(track?.Id));
+  useEffect(() => { setFire(isFire(track?.Id)); }, [track?.Id]);
   const scrollRef = useRef(null);
   const { elRef, onHandlePointerDown, onPointerDown, onPointerMove, onPointerUp } = useDragToClose(onClose, scrollRef);
 
@@ -125,14 +128,22 @@ export function Player({ track, isPlaying, progress, currentTime, duration, volu
           <div style={{ padding: '0 28px' }}>
 
             {/* Track info */}
-            <div style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: 24, fontWeight: 700, color: '#fff', letterSpacing: -0.5, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {track.Name}
+            <div style={{ marginBottom: 18, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 24, fontWeight: 700, color: '#fff', letterSpacing: -0.5, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {track.Name}
+                </div>
+                <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginTop: 5 }}>
+                  {track.AlbumArtist || track.Artists?.[0]}
+                  {track.Album ? <span style={{ color: 'rgba(255,255,255,0.27)' }}> · {track.Album}</span> : null}
+                </div>
               </div>
-              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginTop: 5 }}>
-                {track.AlbumArtist || track.Artists?.[0]}
-                {track.Album ? <span style={{ color: 'rgba(255,255,255,0.27)' }}> · {track.Album}</span> : null}
-              </div>
+              <button
+                onClick={() => { const nowFire = toggleFire(track); setFire(nowFire); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px', flexShrink: 0, marginTop: 2, opacity: fire ? 1 : 0.35, transition: 'opacity 0.2s, transform 0.2s', transform: fire ? 'scale(1.2)' : 'scale(1)' }}
+              >
+                {Icons.fire(fire, fire ? '#f97316' : '#fff')}
+              </button>
             </div>
 
             {/* Waveform + seek */}

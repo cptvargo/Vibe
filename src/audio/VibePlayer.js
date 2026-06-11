@@ -219,6 +219,10 @@ class VibePlayer extends EventTarget {
     this._emit('playback-state', { isPlaying: true });
     reportPlaybackStart(track.Id);
     this._updateMediaSession(track);
+    // Seed position state so lock screen shows scrubber immediately
+    if ('mediaSession' in navigator && navigator.mediaSession.setPositionState) {
+      try { navigator.mediaSession.setPositionState({ duration: track.RunTimeTicks ? track.RunTimeTicks / 10_000_000 : 0, playbackRate: 1, position: 0 }); } catch (_) {}
+    }
   }
 
   async next() {
@@ -243,6 +247,8 @@ class VibePlayer extends EventTarget {
     const audio = this._activeAudio();
     if (!audio.src) return;
     if (audio.paused) {
+      // Resume AudioContext first — on iOS a suspended context blocks native audio too
+      if (this.ctx?.state === 'suspended') await this.ctx.resume().catch(() => {});
       try {
         await audio.play();
         this.isPlaying = true;
@@ -262,6 +268,9 @@ class VibePlayer extends EventTarget {
   seek(seconds) {
     this._activeAudio().currentTime = seconds;
     if (this._analyserEl.src) this._analyserEl.currentTime = seconds;
+    if ('mediaSession' in navigator && navigator.mediaSession.setPositionState) {
+      try { navigator.mediaSession.setPositionState({ duration: this.duration, playbackRate: 1, position: seconds }); } catch (_) {}
+    }
   }
 
   setVolume(v) {
@@ -356,8 +365,22 @@ class VibePlayer extends EventTarget {
       artwork: [{ src: getAlbumImageUrl(track, 300), sizes: '300x300', type: 'image/jpeg' }],
     });
     navigator.mediaSession.playbackState = 'playing';
-    navigator.mediaSession.setActionHandler('play',          () => { if (!this.isPlaying) this.togglePlay(); });
-    navigator.mediaSession.setActionHandler('pause',         () => { if (this.isPlaying)  this.togglePlay(); });
+    navigator.mediaSession.setActionHandler('play', () => {
+      const audio = this._activeAudio();
+      if (this.ctx?.state === 'suspended') this.ctx.resume().catch(() => {});
+      audio.play().catch(() => {});
+      this.isPlaying = true;
+      navigator.mediaSession.playbackState = 'playing';
+      this._emit('playback-state', { isPlaying: true });
+    });
+    navigator.mediaSession.setActionHandler('pause', () => {
+      const audio = this._activeAudio();
+      audio.pause();
+      if (this._analyserEl) this._analyserEl.pause();
+      this.isPlaying = false;
+      navigator.mediaSession.playbackState = 'paused';
+      this._emit('playback-state', { isPlaying: false });
+    });
     navigator.mediaSession.setActionHandler('nexttrack',     () => this.next());
     navigator.mediaSession.setActionHandler('previoustrack', () => this.prev());
     navigator.mediaSession.setActionHandler('seekto', (d) => { if (d.seekTime != null) this.seek(d.seekTime); });

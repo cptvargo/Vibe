@@ -1,9 +1,20 @@
+import { useState } from 'react';
 import { AlbumArt } from './AlbumArt';
 import { HotIcon } from './HotIcon';
+import { Icons } from './Icons';
 import { isHot } from '../utils/hotTracks';
+import { isFire, toggleFire } from '../utils/fireSongs';
 import { fmtTicks } from '../utils/format';
 
 export function TrackRow({ track, onPlay, isActive, index }) {
+  const [fire, setFire] = useState(() => isFire(track.Id));
+
+  const handleFire = (e) => {
+    e.stopPropagation();
+    const nowFire = toggleFire(track);
+    setFire(nowFire);
+  };
+
   return (
     <div
       onClick={() => onPlay(track)}
@@ -16,7 +27,7 @@ export function TrackRow({ track, onPlay, isActive, index }) {
       )}
       <AlbumArt track={track} size={44} radius={6} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <div style={{ fontSize: 14, fontWeight: 500, color: isActive ? '#a78bfa' : '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {track.Name}
           </div>
@@ -26,6 +37,12 @@ export function TrackRow({ track, onPlay, isActive, index }) {
           {track.AlbumArtist || track.Artists?.[0]} · {track.Album}
         </div>
       </div>
+      <button
+        onClick={handleFire}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', flexShrink: 0, opacity: fire ? 1 : 0.3, transition: 'opacity 0.15s, transform 0.15s', transform: fire ? 'scale(1.15)' : 'scale(1)' }}
+      >
+        {Icons.fire(fire)}
+      </button>
       <div style={{ fontSize: 12, color: '#334155', flexShrink: 0 }}>{fmtTicks(track.RunTimeTicks)}</div>
     </div>
   );

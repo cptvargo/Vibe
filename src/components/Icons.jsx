@@ -68,4 +68,10 @@ export const Icons = {
       <polyline points="6,9 12,15 18,9" />
     </svg>
   ),
+  fire: (filled, color = '#f97316') => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill={filled ? color : 'none'} stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2c0 0-5 6.5-5 11a5 5 0 0 0 10 0c0-4.5-5-11-5-11z" />
+      <path d="M12 13c0 0-2 2.5-2 3.5a2 2 0 0 0 4 0c0-1-2-3.5-2-3.5z" fill={filled ? '#fff6' : 'none'} stroke="none" />
+    </svg>
+  ),
 };
