@@ -22,7 +22,7 @@ export function SimilarArtists({ artist, onArtistSelect }) {
           <div key={a.Id} onClick={() => onArtistSelect?.({ Id: a.Id, Name: a.Name })} style={{ flexShrink: 0, width: 80, cursor: 'pointer', textAlign: 'center' }}>
             <div style={{ width: 80, height: 80, borderRadius: '50%', overflow: 'hidden', background: '#1e1e2e', marginBottom: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
               <img
-                src={`/artists/${a.Name}.jpg`}
+                src={`${import.meta.env.BASE_URL}artists/${a.Name}.jpg`}
                 alt={a.Name}
                 style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }}
                 onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}

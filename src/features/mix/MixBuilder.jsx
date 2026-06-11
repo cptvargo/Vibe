@@ -26,7 +26,7 @@ export function MixBuilder({ mode, onPlay, onClose }) {
         const r = await getArtists(200);
         const all = (r.Items || []).map(a => ({
           Id: a.Id, Name: a.Name,
-          imageUrl:    `/artists/${a.Name}.jpg`,
+          imageUrl:    `${import.meta.env.BASE_URL}artists/${a.Name}.jpg`,
           jellyfinUrl: getArtistImageUrl(a.Id, 80),
         }));
         allArtistsRef.current = all;

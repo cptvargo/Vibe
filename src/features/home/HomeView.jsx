@@ -88,7 +88,7 @@ export function HomeView({ player, onAlbumSelect, onArtistSelect, playAndExpand,
               const isArtist = t.Type === 'MusicArtist';
               const isAlbum  = t.Type === 'MusicAlbum';
               const isTrack  = !isArtist && !isAlbum;
-              const imgUrl   = isArtist ? `/artists/${t.Name}.jpg` : isAlbum ? getImageUrl(t.Id, 'Primary', 280) : getAlbumImageUrl(t, 280);
+              const imgUrl   = isArtist ? `${import.meta.env.BASE_URL}artists/${t.Name}.jpg` : isAlbum ? getImageUrl(t.Id, 'Primary', 280) : getAlbumImageUrl(t, 280);
               const sublabel = isArtist ? (timeAgo || '') : isAlbum ? (t.AlbumArtist || '') : (t.AlbumArtist || t.Artists?.[0] || '');
               const isActive = isTrack && player.currentTrack?.Id === t.Id;
 
@@ -109,7 +109,7 @@ export function HomeView({ player, onAlbumSelect, onArtistSelect, playAndExpand,
                       src={imgUrl} alt={t.Name}
                       style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: isArtist ? 'center 20%' : 'center' }}
                       onError={(e) => {
-                        if (isArtist) { e.target.src = `/artists/${encodeURIComponent(t.Name)}.jpg`; e.target.onerror = () => { e.target.style.display = 'none'; }; }
+                        if (isArtist) { e.target.src = `${import.meta.env.BASE_URL}artists/${encodeURIComponent(t.Name)}.jpg`; e.target.onerror = () => { e.target.style.display = 'none'; }; }
                         else { e.target.style.display = 'none'; }
                       }}
                     />
@@ -130,8 +130,8 @@ export function HomeView({ player, onAlbumSelect, onArtistSelect, playAndExpand,
             {recentArtists.map((a) => (
               <div key={a.Id} onClick={() => onArtistSelect?.({ Id: a.Id, Name: a.Name })} style={{ flexShrink: 0, width: 90, cursor: 'pointer', textAlign: 'center' }}>
                 <div style={{ width: 90, height: 90, borderRadius: '50%', overflow: 'hidden', background: '#1e1e2e', marginBottom: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
-                  <img src={`/artists/${a.Name}.jpg`} alt={a.Name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }}
-                    onError={(e) => { e.target.src = `/artists/${encodeURIComponent(a.Name)}.jpg`; e.target.onerror = () => { e.target.style.display = 'none'; }; }} />
+                  <img src={`${import.meta.env.BASE_URL}artists/${a.Name}.jpg`} alt={a.Name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }}
+                    onError={(e) => { e.target.src = `${import.meta.env.BASE_URL}artists/${encodeURIComponent(a.Name)}.jpg`; e.target.onerror = () => { e.target.style.display = 'none'; }; }} />
                 </div>
                 <div style={{ fontSize: 12, fontWeight: 500, color: '#f1f5f9', lineHeight: 1.3 }}>{a.Name}</div>
               </div>

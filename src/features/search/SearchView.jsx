@@ -73,8 +73,8 @@ export function SearchView({ player, onAlbumSelect, onArtistSelect, playAndExpan
             {artists.map((a) => (
               <div key={a.Id} onClick={() => onArtistSelect?.(a)} style={{ flexShrink: 0, width: 90, cursor: 'pointer', textAlign: 'center' }}>
                 <div style={{ width: 90, height: 90, borderRadius: '50%', overflow: 'hidden', background: '#1e1e2e', marginBottom: 8 }}>
-                  <img src={`/artists/${a.Name}.jpg`} alt={a.Name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }}
-                    onError={(e) => { e.target.src = `/artists/${encodeURIComponent(a.Name)}.jpg`; e.target.onerror = () => { e.target.style.display = 'none'; }; }} />
+                  <img src={`${import.meta.env.BASE_URL}artists/${a.Name}.jpg`} alt={a.Name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }}
+                    onError={(e) => { e.target.src = `${import.meta.env.BASE_URL}artists/${encodeURIComponent(a.Name)}.jpg`; e.target.onerror = () => { e.target.style.display = 'none'; }; }} />
                 </div>
                 <div style={{ fontSize: 12, fontWeight: 500, color: '#f1f5f9', lineHeight: 1.3 }}>{a.Name}</div>
               </div>
