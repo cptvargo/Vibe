@@ -33,6 +33,9 @@ jobs:
       - run: npm run build
         env:
           VITE_BASE: /vibe/
+          VITE_JELLYFIN_URL: ${{ secrets.VITE_JELLYFIN_URL }}
+          VITE_JELLYFIN_API_KEY: ${{ secrets.VITE_JELLYFIN_API_KEY }}
+          VITE_JELLYFIN_USER_ID: ${{ secrets.VITE_JELLYFIN_USER_ID }}
 
       - uses: actions/upload-pages-artifact@v3
         with:
