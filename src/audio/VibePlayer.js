@@ -183,14 +183,15 @@ class VibePlayer extends EventTarget {
     const audio = this._activeAudio();
     const other = this.activeSlot === 'A' ? this._audioB : this._audioA;
 
-    // Hard reset current slot
+    // Abort previous stream then set new source — no second load() needed:
+    // setting src already invokes the load algorithm per WHATWG spec,
+    // and calling load() again would abort the in-progress fetch and restart.
     audio.pause();
     audio.src = '';
-    audio.load();
+    audio.load(); // abort old stream
     audio.playsInline = true;
     audio.volume = this.volume;
-    audio.src = getStreamUrl(track.Id) + `&t=${Date.now()}`;
-    audio.load();
+    audio.src = getStreamUrl(track.Id); // starts buffering immediately
 
     // Silence opposite slot
     other.pause();
@@ -290,8 +291,7 @@ class VibePlayer extends EventTarget {
     nextAudio.src = '';
     nextAudio.load();
     nextAudio.volume = 0;
-    nextAudio.src = getStreamUrl(this.queue[nextIdx].Id) + `&t=${Date.now()}`;
-    nextAudio.load();
+    nextAudio.src = getStreamUrl(this.queue[nextIdx].Id);
   }
 
   async _sweetFade() {
@@ -309,8 +309,7 @@ class VibePlayer extends EventTarget {
     nextAudio.load();
     nextAudio.volume = 0;
     nextAudio.playsInline = true;
-    nextAudio.src = getStreamUrl(nextTrack.Id) + `&t=${Date.now()}`;
-    nextAudio.load();
+    nextAudio.src = getStreamUrl(nextTrack.Id);
 
     try { await nextAudio.play(); } catch(e) { this._isFading = false; return; }
 

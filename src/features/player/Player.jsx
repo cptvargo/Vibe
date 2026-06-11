@@ -63,21 +63,27 @@ export function Player({ track, isPlaying, progress, currentTime, duration, volu
     >
       <style>{`@keyframes vibeSlideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
 
-      {/* Full-screen blurred atmosphere — low-res art, heavily blurred */}
+      {/* Full-screen blurred atmosphere — album art at higher brightness so colors show */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0, overflow: 'hidden' }}>
         <img
           ref={bgRef}
           src={getAlbumImageUrl(track, 200)}
           alt=""
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'blur(48px) brightness(0.22)', transformOrigin: 'center center', willChange: 'transform' }}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'blur(60px) brightness(0.45) saturate(1.6)', transformOrigin: 'center center', willChange: 'transform' }}
         />
       </div>
 
-      {/* Dark overlay */}
-      <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'linear-gradient(to bottom, rgba(4,4,14,0.3) 0%, rgba(4,4,14,0.55) 55%, #04040e 100%)', pointerEvents: 'none' }} />
+      {/* Lighter overlay so album colors bleed through */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'linear-gradient(to bottom, rgba(4,4,14,0.1) 0%, rgba(4,4,14,0.35) 45%, rgba(4,4,14,0.82) 100%)', pointerEvents: 'none' }} />
 
-      {/* Accent color bloom at bottom */}
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '45%', zIndex: 1, background: `radial-gradient(ellipse at 50% 110%, ${accent}16 0%, transparent 65%)`, pointerEvents: 'none', transition: 'background 600ms ease' }} />
+      {/* Accent color tint over everything */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 1, backgroundColor: `${accent}10`, pointerEvents: 'none', transition: 'background-color 700ms ease' }} />
+
+      {/* Top accent bloom */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '50%', zIndex: 1, background: `radial-gradient(ellipse at 50% -10%, ${accent}28 0%, transparent 60%)`, pointerEvents: 'none', transition: 'background 700ms ease' }} />
+
+      {/* Bottom accent bloom */}
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '50%', zIndex: 1, background: `radial-gradient(ellipse at 50% 120%, ${accent}22 0%, transparent 60%)`, pointerEvents: 'none', transition: 'background 700ms ease' }} />
 
       {/* Scrollable surface */}
       <div

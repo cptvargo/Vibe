@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getArtistAlbums, getArtistTracks, getImageUrl } from './library.api';
+import { getArtistAlbums, getArtistTracks, getAlbumTracks, getImageUrl } from './library.api';
 import { extractColors as extractColorsUtil } from '../../utils/colorExtract';
 import { Icons } from '../../components/Icons';
 import { Loader } from '../../components/Loader';
@@ -7,9 +7,10 @@ import { PageTransition } from '../../components/PageTransition';
 import { SimilarArtists } from './SimilarArtists';
 
 export function ArtistDetail({ artist, onClose, onAlbumSelect, player }) {
-  const [albums,  setAlbums]  = useState([]);
-  const [colors,  setColors]  = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [albums,          setAlbums]          = useState([]);
+  const [colors,          setColors]          = useState(null);
+  const [loading,         setLoading]         = useState(true);
+  const [playingAlbumId,  setPlayingAlbumId]  = useState(null);
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -41,6 +42,14 @@ export function ArtistDetail({ artist, onClose, onAlbumSelect, player }) {
     const r = await getArtistTracks(artist.Id, 100);
     if (!r.Items?.length) return;
     player.play([...r.Items].sort(() => Math.random() - 0.5), 0); player.setPlayerExpanded(true); onClose();
+  };
+  const playAlbum = async (album, e) => {
+    e.stopPropagation();
+    setPlayingAlbumId(album.Id);
+    const r = await getAlbumTracks(album.Id);
+    setPlayingAlbumId(null);
+    if (!r.Items?.length) return;
+    player.play(r.Items, 0); player.setPlayerExpanded(true); onClose();
   };
 
   return (
@@ -88,8 +97,16 @@ export function ArtistDetail({ artist, onClose, onAlbumSelect, player }) {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
                 {albums.map((album) => (
                   <div key={album.Id} onClick={() => onAlbumSelect?.(album)} style={{ cursor: 'pointer' }}>
-                    <div style={{ width: '100%', aspectRatio: '1/1', borderRadius: 12, overflow: 'hidden', background: '#1e1e2e', marginBottom: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
+                    <div style={{ position: 'relative', width: '100%', aspectRatio: '1/1', borderRadius: 12, overflow: 'hidden', background: '#1e1e2e', marginBottom: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
                       <img src={getImageUrl(album.Id, 'Primary', 400)} alt={album.Name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; }} />
+                      <button
+                        onClick={(e) => playAlbum(album, e)}
+                        style={{ position: 'absolute', bottom: 8, right: 8, width: 38, height: 38, borderRadius: '50%', background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        {playingAlbumId === album.Id
+                          ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="9" opacity="0.3"/><path d="M12 3a9 9 0 0 1 9 9" strokeOpacity="1"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite"/></path></svg>
+                          : Icons.play('#fff')}
+                      </button>
                     </div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9', lineHeight: 1.3 }}>{album.Name}</div>
                     <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>{album.ProductionYear || ''}</div>

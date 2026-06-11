@@ -29,8 +29,8 @@ export function AlbumDetail({ album, onClose, onArtistSelect, player }) {
   const imgUrl  = getImageUrl(album.Id, 'Primary', 600);
   const total   = tracks.reduce((s, t) => s + (t.RunTimeTicks || 0), 0);
 
-  const playAll = (idx = 0) => { player.play(tracks, idx); player.setPlayerExpanded(true); onClose(); };
-  const playShuffle = () => { player.play([...tracks].sort(() => Math.random() - 0.5), 0); player.setPlayerExpanded(true); onClose(); };
+  const playAll     = (idx = 0) => { if (!tracks.length) return; player.play(tracks, idx); player.setPlayerExpanded(true); onClose(); };
+  const playShuffle = ()       => { if (!tracks.length) return; player.play([...tracks].sort(() => Math.random() - 0.5), 0); player.setPlayerExpanded(true); onClose(); };
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 300 }}>
@@ -54,10 +54,10 @@ export function AlbumDetail({ album, onClose, onArtistSelect, player }) {
                 {album.ProductionYear && `${album.ProductionYear} · `}{tracks.length} songs · {fmtTicks(total)}
               </p>
               <div style={{ display: 'flex', gap: 12, marginTop: 20, marginBottom: 8 }}>
-                <button onClick={() => playAll(0)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 28px', background: accent, border: 'none', borderRadius: 30, cursor: 'pointer', color: '#fff', fontSize: 15, fontWeight: 700, boxShadow: `0 4px 24px ${accent}55` }}>
-                  {Icons.play('#fff')} Play
+                <button onClick={() => playAll(0)} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 28px', background: loading ? 'rgba(255,255,255,0.1)' : accent, border: 'none', borderRadius: 30, cursor: loading ? 'default' : 'pointer', color: '#fff', fontSize: 15, fontWeight: 700, boxShadow: loading ? 'none' : `0 4px 24px ${accent}55`, transition: 'background 0.2s' }}>
+                  {loading ? '…' : <>{Icons.play('#fff')} Play</>}
                 </button>
-                <button onClick={playShuffle} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 22px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 30, cursor: 'pointer', color: '#f1f5f9', fontSize: 15, fontWeight: 600 }}>
+                <button onClick={playShuffle} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 22px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 30, cursor: loading ? 'default' : 'pointer', color: '#f1f5f9', fontSize: 15, fontWeight: 600, opacity: loading ? 0.4 : 1 }}>
                   {Icons.shuffle('#f1f5f9')} Shuffle
                 </button>
               </div>

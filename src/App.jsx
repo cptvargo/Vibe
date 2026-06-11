@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import './styles/tokens.css';
-import { useVibePlayer } from './hooks/useVibePlayer';
-import { NavBar }        from './layout/NavBar';
+import { useVibePlayer }  from './hooks/useVibePlayer';
+import { controlledAccent } from './utils/colorUtils';
+import { NavBar }          from './layout/NavBar';
 import { HomeView }      from './features/home/HomeView';
 import { SearchView }    from './features/search/SearchView';
 import { LibraryView }   from './features/library/LibraryView';
@@ -10,6 +11,7 @@ import { ArtistDetail }  from './features/library/ArtistDetail';
 import { TrackListPage } from './features/library/TrackListPage';
 import { MiniPlayer }    from './features/player/MiniPlayer';
 import { Player }        from './features/player/Player';
+import { ScreenSaver }   from './features/player/ScreenSaver';
 import { MixBuilder }    from './features/mix/MixBuilder';
 import { recordPlay }    from './utils/hotTracks';
 
@@ -18,6 +20,45 @@ export default function App() {
   const [view,    setView]    = useState('home');
   const [stack,   setStack]   = useState([]);
   const [mixMode, setMixMode] = useState(null); // 'artist' | 'album' | null
+
+  const [isIdle,      setIsIdle]  = useState(false);
+  const idleTimer    = useRef(null);
+  const isPlayingRef = useRef(false);
+  isPlayingRef.current = player.isPlaying;
+
+  // Stable: just starts the 30s countdown
+  const startIdleTimer = useCallback(() => {
+    clearTimeout(idleTimer.current);
+    idleTimer.current = setTimeout(() => setIsIdle(true), 30_000);
+  }, []);
+
+  // Stable: dismiss screensaver + restart countdown. Reads isPlayingRef so no stale closure.
+  const resetIdle = useCallback(() => {
+    setIsIdle(false);
+    clearTimeout(idleTimer.current);
+    if (isPlayingRef.current) startIdleTimer();
+  }, [startIdleTimer]);
+
+  // Event listeners added once — resetIdle is stable
+  useEffect(() => {
+    window.addEventListener('pointerdown', resetIdle, { passive: true });
+    window.addEventListener('keydown',     resetIdle, { passive: true });
+    return () => {
+      window.removeEventListener('pointerdown', resetIdle);
+      window.removeEventListener('keydown',     resetIdle);
+    };
+  }, [resetIdle]);
+
+  // Start/stop timer on play state or track change
+  useEffect(() => {
+    if (player.isPlaying) {
+      startIdleTimer();
+    } else {
+      clearTimeout(idleTimer.current);
+      setIsIdle(false);
+    }
+    return () => clearTimeout(idleTimer.current);
+  }, [player.isPlaying, player.currentTrack?.Id, startIdleTimer]);
 
   const [recentArtists, setRecentArtists] = useState(() => {
     try { return JSON.parse(localStorage.getItem('vibe_recent_artists') || '[]'); }
@@ -55,7 +96,8 @@ export default function App() {
     if (window.innerWidth < 768) player.setPlayerExpanded(true);
   };
 
-  const progress = player.duration > 0 ? player.currentTime / player.duration : 0;
+  const progress    = player.duration > 0 ? player.currentTime / player.duration : 0;
+  const accentGlow  = player.lockedAccent ? controlledAccent(player.lockedAccent) : null;
 
   return (
     <div style={{ minHeight: '100vh', background: '#080810', color: '#f1f5f9' }}>
@@ -66,6 +108,11 @@ export default function App() {
         body,*{user-select:none;-webkit-user-select:none}
         button,div{-webkit-touch-callout:none}
       `}</style>
+
+      {/* Ambient album color — bleeds into the whole app including NavBar's blur */}
+      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', backgroundColor: accentGlow ? `${accentGlow}1a` : 'transparent', transition: 'background-color 1.4s ease' }} />
+      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', background: accentGlow ? `radial-gradient(ellipse at 50% -10%, ${accentGlow}50 0%, transparent 60%)` : 'none', transition: 'background 1.4s ease' }} />
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: '40%', zIndex: 0, pointerEvents: 'none', background: accentGlow ? `radial-gradient(ellipse at 50% 120%, ${accentGlow}28 0%, transparent 65%)` : 'none', transition: 'background 1.4s ease' }} />
 
       <NavBar active={view} onChange={(v) => { setStack([]); setView(v); }} blocked={player.playerExpanded} />
 
@@ -87,7 +134,6 @@ export default function App() {
       {mixMode && (
         <MixBuilder
           mode={mixMode}
-          recentArtists={recentArtists}
           onPlay={(tracks) => { playAndExpand(tracks, 0); setMixMode(null); }}
           onClose={() => setMixMode(null)}
         />
@@ -118,6 +164,17 @@ export default function App() {
           onShuffle={player.toggleShuffle} onRepeat={player.cycleRepeat}
           onClose={() => player.setPlayerExpanded(false)}
           queue={player.queue} queueIndex={player.queueIndex} onPlayAt={player.playAt}
+        />
+      )}
+
+      {/* Screen saver — activates after 30s idle while music plays */}
+      {isIdle && player.currentTrack && (
+        <ScreenSaver
+          track={player.currentTrack}
+          currentTime={player.currentTime}
+          duration={player.duration}
+          accent={accentGlow}
+          onDismiss={resetIdle}
         />
       )}
     </div>

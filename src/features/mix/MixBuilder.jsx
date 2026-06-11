@@ -1,31 +1,38 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  getArtists, searchArtists, getArtistTracks, getArtistImageUrl,
+  getArtists, getArtistTracks, getArtistImageUrl,
   getTopAlbums, getAlbumTracks_forMix, getImageUrl, search,
 } from '../library/library.api';
 import { controlledAccent } from '../../utils/colorUtils';
 import { useAccent } from '../player/useAccent';
 
-export function MixBuilder({ mode, recentArtists = [], onPlay, onClose }) {
+export function MixBuilder({ mode, onPlay, onClose }) {
   const accent   = controlledAccent(useAccent());
   const isArtist = mode === 'artist';
 
   const [selected,      setSelected]      = useState([]);
-  const [browse,        setBrowse]        = useState([]);
+  const [browse,        setBrowse]        = useState([]); // 7 random quick picks
   const [query,         setQuery]         = useState('');
-  const [searchRes,     setSearchRes]     = useState(null); // null = show browse
+  const [searchRes,     setSearchRes]     = useState(null);
   const [loadingBrowse, setLoadingBrowse] = useState(true);
   const [generating,    setGenerating]    = useState(false);
-  const debounce = useRef(null);
+  const allArtistsRef = useRef([]); // full list for local search
+  const debounce      = useRef(null);
 
   useEffect(() => {
     setLoadingBrowse(true);
     (async () => {
       if (isArtist) {
-        const r = await getArtists(80);
-        setBrowse((r.Items || []).map(a => ({
-          Id: a.Id, Name: a.Name, imageUrl: getArtistImageUrl(a.Id, 80),
-        })));
+        const r = await getArtists(200);
+        const all = (r.Items || []).map(a => ({
+          Id: a.Id, Name: a.Name,
+          imageUrl:    `/artists/${a.Name}.jpg`,
+          jellyfinUrl: getArtistImageUrl(a.Id, 80),
+        }));
+        allArtistsRef.current = all;
+        // Shuffle and show 7 random quick picks
+        const shuffled = [...all].sort(() => Math.random() - 0.5);
+        setBrowse(shuffled.slice(0, 7));
       } else {
         const r = await getTopAlbums(24);
         setBrowse((r.Items || []).map(a => ({
@@ -37,24 +44,23 @@ export function MixBuilder({ mode, recentArtists = [], onPlay, onClose }) {
     })();
   }, [isArtist]);
 
+  // Artist search is local (instant); album search hits the API
   useEffect(() => {
     clearTimeout(debounce.current);
     if (!query.trim()) { setSearchRes(null); return; }
-    debounce.current = setTimeout(async () => {
-      if (isArtist) {
-        const r = await searchArtists(query);
-        setSearchRes((r.Items || []).map(a => ({
-          Id: a.Id, Name: a.Name, imageUrl: getArtistImageUrl(a.Id, 80),
-        })));
-      } else {
+    if (isArtist) {
+      const q = query.toLowerCase();
+      setSearchRes(allArtistsRef.current.filter(a => a.Name.toLowerCase().includes(q)));
+    } else {
+      debounce.current = setTimeout(async () => {
         const r = await search(query, 30);
         setSearchRes(
           (r.Items || [])
             .filter(i => i.Type === 'MusicAlbum')
             .map(a => ({ Id: a.Id, Name: a.Name, subtitle: a.AlbumArtist, imageUrl: getImageUrl(a.Id, 'Primary', 80) }))
         );
-      }
-    }, 300);
+      }, 300);
+    }
   }, [query, isArtist]);
 
   const isSelected = (id) => selected.some(s => s.Id === id);
@@ -75,7 +81,6 @@ export function MixBuilder({ mode, recentArtists = [], onPlay, onClose }) {
       const results = await Promise.all(selected.map(a => getArtistTracks(a.Id, 50)));
       tracks = results.flatMap(r => r.Items || []).sort(() => Math.random() - 0.5);
     } else {
-      // Full albums in track order, one after another
       const results = await Promise.all(selected.map(a => getAlbumTracks_forMix(a.Id)));
       tracks = results.flatMap(r => r.Items || []);
     }
@@ -84,18 +89,13 @@ export function MixBuilder({ mode, recentArtists = [], onPlay, onClose }) {
   };
 
   const displayItems = searchRes ?? browse;
-  const recentIds    = new Set(recentArtists.map(a => a.Id));
-  const libraryItems = isArtist && !query ? displayItems.filter(i => !recentIds.has(i.Id)) : displayItems;
-  const showRecent   = isArtist && !query && recentArtists.length > 0;
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', flexDirection: 'column' }}>
       <style>{`@keyframes mixUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
 
-      {/* Backdrop */}
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }} />
 
-      {/* Sheet */}
       <div style={{ position: 'relative', marginTop: 'auto', background: '#0d0d1a', borderRadius: '20px 20px 0 0', maxHeight: '88dvh', display: 'flex', flexDirection: 'column', animation: 'mixUp 0.32s cubic-bezier(0.32,0.72,0,1) both' }}>
 
         {/* Header */}
@@ -122,7 +122,7 @@ export function MixBuilder({ mode, recentArtists = [], onPlay, onClose }) {
               {selected.map(item => (
                 <button key={item.Id} onClick={() => toggle(item)}
                   style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px 4px 4px', background: `${accent}20`, border: `1px solid ${accent}44`, borderRadius: 20, cursor: 'pointer' }}>
-                  <img src={item.imageUrl} alt="" style={{ width: 22, height: 22, borderRadius: isArtist ? '50%' : 3, objectFit: 'cover' }} onError={e => { e.target.style.display = 'none'; }} />
+                  <ArtistChipImg item={item} isArtist={isArtist} />
                   <span style={{ fontSize: 12, fontWeight: 600, color: accent, whiteSpace: 'nowrap' }}>{item.Name}</span>
                   <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
@@ -142,26 +142,15 @@ export function MixBuilder({ mode, recentArtists = [], onPlay, onClose }) {
           </div>
         </div>
 
-        {/* Browse area */}
+        {/* Browse */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 8px' }}>
           {loadingBrowse && !displayItems.length ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(255,255,255,0.25)', fontSize: 13 }}>Loading…</div>
           ) : isArtist ? (
             <>
-              {showRecent && (
-                <>
-                  <SectionLabel>Recent</SectionLabel>
-                  <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
-                    {recentArtists.map(a => {
-                      const item = { Id: a.Id, Name: a.Name, imageUrl: getArtistImageUrl(a.Id, 80) };
-                      return <ArtistDot key={a.Id} item={item} selected={isSelected(a.Id)} accent={accent} onToggle={() => toggle(item)} />;
-                    })}
-                  </div>
-                  {libraryItems.length > 0 && <SectionLabel>Library</SectionLabel>}
-                </>
-              )}
+              {!query && <SectionLabel>Suggested</SectionLabel>}
               <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-                {libraryItems.map(item => (
+                {displayItems.map(item => (
                   <ArtistDot key={item.Id} item={item} selected={isSelected(item.Id)} accent={accent} onToggle={() => toggle(item)} />
                 ))}
               </div>
@@ -201,6 +190,25 @@ export function MixBuilder({ mode, recentArtists = [], onPlay, onClose }) {
   );
 }
 
+// Small image inside selected chips
+function ArtistChipImg({ item, isArtist }) {
+  const handleError = (e) => {
+    if (item.jellyfinUrl && e.target.src !== item.jellyfinUrl) {
+      e.target.src = item.jellyfinUrl;
+    } else {
+      e.target.style.display = 'none';
+    }
+  };
+  return (
+    <img
+      src={item.imageUrl}
+      alt=""
+      style={{ width: 22, height: 22, borderRadius: isArtist ? '50%' : 3, objectFit: 'cover', flexShrink: 0 }}
+      onError={handleError}
+    />
+  );
+}
+
 function SectionLabel({ children }) {
   return (
     <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.28)', letterSpacing: 1.2, textTransform: 'uppercase', padding: '4px 0 10px' }}>
@@ -210,10 +218,17 @@ function SectionLabel({ children }) {
 }
 
 function ArtistDot({ item, selected, accent, onToggle }) {
+  const handleError = (e) => {
+    if (item.jellyfinUrl && e.target.src !== item.jellyfinUrl) {
+      e.target.src = item.jellyfinUrl;
+    } else {
+      e.target.style.display = 'none';
+    }
+  };
   return (
     <button onClick={onToggle} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, width: 66, padding: 0 }}>
       <div style={{ width: 54, height: 54, borderRadius: '50%', overflow: 'hidden', background: '#1e1e2e', border: `2.5px solid ${selected ? accent : 'transparent'}`, transition: 'border-color 0.15s', flexShrink: 0, boxSizing: 'border-box' }}>
-        <img src={item.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError={e => { e.target.style.display = 'none'; }} />
+        <img src={item.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError={handleError} />
       </div>
       <span style={{ fontSize: 10, fontWeight: selected ? 700 : 400, color: selected ? accent : 'rgba(255,255,255,0.55)', textAlign: 'center', lineHeight: 1.3, width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {item.Name}
