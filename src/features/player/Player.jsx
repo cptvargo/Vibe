@@ -178,7 +178,7 @@ export function Player({ track, isPlaying, progress, currentTime, duration, volu
             {/* Volume */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4 }}>
               {Icons.volLow('rgba(255,255,255,0.28)')}
-              <input type="range" min={0} max={1} step={0.01} value={volume} onChange={(e) => onVolume(parseFloat(e.target.value))} style={{ flex: 1, accentColor: accent }} />
+              <input type="range" min={0} max={1} step={0.01} value={volume} onChange={(e) => onVolume(parseFloat(e.target.value))} style={{ flex: 1, accentColor: accent, background: `linear-gradient(to right, ${accent} ${volume * 100}%, rgba(255,255,255,0.12) ${volume * 100}%)` }} />
               {Icons.volHigh('rgba(255,255,255,0.28)')}
             </div>
           </div>
