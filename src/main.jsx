@@ -3,8 +3,10 @@ import ReactDOM from 'react-dom/client'
 import './styles/tokens.css'
 import App from './App.jsx'
 import { initAnalyticsListener } from './features/analytics/analyticsListener'
+import { initServerUrl } from './api/jellyfin'
 
 initAnalyticsListener()
+initServerUrl() // non-blocking: detects LAN vs remote before user taps first song
 
 class ErrorBoundary extends React.Component {
   state = { error: null }

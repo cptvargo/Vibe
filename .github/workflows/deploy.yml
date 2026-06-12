@@ -34,6 +34,7 @@ jobs:
         env:
           VITE_BASE: /${{ github.event.repository.name }}/
           VITE_JELLYFIN_URL: ${{ secrets.VITE_JELLYFIN_URL }}
+          VITE_JELLYFIN_LOCAL_URL: ${{ secrets.VITE_JELLYFIN_LOCAL_URL }}
           VITE_JELLYFIN_API_KEY: ${{ secrets.VITE_JELLYFIN_API_KEY }}
           VITE_JELLYFIN_USER_ID: ${{ secrets.VITE_JELLYFIN_USER_ID }}
 

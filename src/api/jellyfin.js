@@ -4,7 +4,21 @@
 
 import { VIBE_CONFIG } from '../config/vibeConfig';
 
-const { serverUrl: BASE_URL, token: TOKEN, userId: USER_ID } = VIBE_CONFIG;
+const { token: TOKEN, userId: USER_ID } = VIBE_CONFIG;
+let _activeUrl = VIBE_CONFIG.serverUrl;
+const url = () => _activeUrl;
+
+// Fire-and-forget: tries local LAN first (responds in <50ms if home),
+// falls back to remote after 1.5s timeout. Non-blocking — app renders immediately.
+export function initServerUrl() {
+  const { localUrl } = VIBE_CONFIG;
+  if (!localUrl) return;
+  const ctrl = new AbortController();
+  setTimeout(() => ctrl.abort(), 1500);
+  fetch(`${localUrl}/System/Info/Public`, { signal: ctrl.signal, cache: 'no-store' })
+    .then(r => { if (r.ok) { _activeUrl = localUrl; console.log('[Vibe] LAN detected — using local server'); } })
+    .catch(() => {});
+}
 
 const headers = () => ({
   'Content-Type': 'application/json',
@@ -12,7 +26,7 @@ const headers = () => ({
 });
 
 async function request(path) {
-  const res = await fetch(`${BASE_URL}${path}`, { headers: headers() });
+  const res = await fetch(`${url()}${path}`, { headers: headers() });
   if (!res.ok) throw new Error(`Jellyfin ${res.status}: ${path}`);
   return res.json();
 }
@@ -68,12 +82,12 @@ export async function getArtists(limit = 200) {
 
 export function getArtistImageUrl(artistId, size = 200) {
   if (!artistId) return null;
-  return `${BASE_URL}/Items/${artistId}/Images/Primary?fillHeight=${size}&fillWidth=${size}&quality=90&api_key=${TOKEN}`;
+  return `${url()}/Items/${artistId}/Images/Primary?fillHeight=${size}&fillWidth=${size}&quality=90&api_key=${TOKEN}`;
 }
 
 export function getArtistBackdropUrl(artistId) {
   if (!artistId) return null;
-  return `${BASE_URL}/Items/${artistId}/Images/Backdrop?fillWidth=800&quality=85&api_key=${TOKEN}`;
+  return `${url()}/Items/${artistId}/Images/Backdrop?fillWidth=800&quality=85&api_key=${TOKEN}`;
 }
 
 export async function getAllTracks(limit = 500) {
@@ -101,16 +115,16 @@ export async function search(query, limit = 40) {
 
 // ── Streaming & Images ────────────────────────
 export function getStreamUrl(itemId) {
-  return `${BASE_URL}/Audio/${itemId}/stream?static=true&api_key=${TOKEN}&UserId=${USER_ID}&Container=m4a,mp3,flac,wav,aac,ogg`;
+  return `${url()}/Audio/${itemId}/stream?static=true&api_key=${TOKEN}&UserId=${USER_ID}&Container=m4a,mp3,flac,wav,aac,ogg`;
 }
 
 export function getStreamUrlFallback(itemId) {
-  return `${BASE_URL}/Audio/${itemId}/stream?api_key=${TOKEN}&UserId=${USER_ID}&AudioCodec=aac&Container=ts&MaxStreamingBitrate=140000000`;
+  return `${url()}/Audio/${itemId}/stream?api_key=${TOKEN}&UserId=${USER_ID}&AudioCodec=aac&Container=ts&MaxStreamingBitrate=140000000`;
 }
 
 export function getImageUrl(itemId, type = 'Primary', size = 400) {
   if (!itemId) return null;
-  return `${BASE_URL}/Items/${itemId}/Images/${type}?fillHeight=${size}&fillWidth=${size}&quality=90&api_key=${TOKEN}`;
+  return `${url()}/Items/${itemId}/Images/${type}?fillHeight=${size}&fillWidth=${size}&quality=90&api_key=${TOKEN}`;
 }
 
 export function getAlbumImageUrl(track, size = 400) {
@@ -121,21 +135,21 @@ export function getAlbumImageUrl(track, size = 400) {
 
 // ── Playback Reporting ────────────────────────
 export async function reportPlaybackStart(itemId) {
-  return fetch(`${BASE_URL}/Sessions/Playing`, {
+  return fetch(`${url()}/Sessions/Playing`, {
     method: 'POST', headers: headers(),
     body: JSON.stringify({ ItemId: itemId, CanSeek: true, IsPaused: false }),
   }).catch(() => {});
 }
 
 export async function reportPlaybackProgress(itemId, positionTicks) {
-  return fetch(`${BASE_URL}/Sessions/Playing/Progress`, {
+  return fetch(`${url()}/Sessions/Playing/Progress`, {
     method: 'POST', headers: headers(),
     body: JSON.stringify({ ItemId: itemId, PositionTicks: positionTicks }),
   }).catch(() => {});
 }
 
 export async function reportPlaybackStopped(itemId, positionTicks) {
-  return fetch(`${BASE_URL}/Sessions/Playing/Stopped`, {
+  return fetch(`${url()}/Sessions/Playing/Stopped`, {
     method: 'POST', headers: headers(),
     body: JSON.stringify({ ItemId: itemId, PositionTicks: positionTicks }),
   }).catch(() => {});
@@ -166,7 +180,7 @@ export async function searchArtists(query) {
 }
 
 export async function markPlayed(itemId) {
-  return fetch(`${BASE_URL}/Users/${USER_ID}/PlayedItems/${itemId}`, {
+  return fetch(`${url()}/Users/${USER_ID}/PlayedItems/${itemId}`, {
     method: 'POST', headers: headers(),
   }).catch(() => {});
 }
