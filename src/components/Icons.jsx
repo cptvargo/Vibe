@@ -81,6 +81,12 @@ export const Icons = {
       <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29" />
     </svg>
   ),
+  sparkle: (c = '#fff') => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill={c}>
+      <path d="M12 2 C12 2 13.2 8.8 16 11 C18.8 13.2 24 12 24 12 C24 12 18.8 10.8 16 13 C13.2 15.2 12 22 12 22 C12 22 10.8 15.2 8 13 C5.2 10.8 0 12 0 12 C0 12 5.2 13.2 8 11 C10.8 8.8 12 2 12 2Z" />
+      <path d="M19.5 4 C19.5 4 20 6.5 21.5 7.5 C23 8.5 24 8 24 8 C24 8 23 7.5 21.5 8.5 C20 9.5 19.5 12 19.5 12 C19.5 12 19 9.5 17.5 8.5 C16 7.5 15 8 15 8 C15 8 16 8.5 17.5 7.5 C19 6.5 19.5 4 19.5 4Z" opacity="0.6" />
+    </svg>
+  ),
   cloudDone: (c = '#4ade80') => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29" />

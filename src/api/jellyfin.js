@@ -6,6 +6,7 @@ import { VIBE_CONFIG } from '../config/vibeConfig';
 
 const { token: TOKEN, userId: USER_ID } = VIBE_CONFIG;
 let _activeUrl = VIBE_CONFIG.serverUrl;
+const VIBE_LIB = 'f7cfaffc15ccf8bd61c77386dfdf9805'; // scopes main queries away from AI library
 const url = () => _activeUrl;
 
 // Fire-and-forget: tries local LAN first (responds in <50ms if home),
@@ -33,11 +34,11 @@ async function request(path) {
 
 // ── Library ───────────────────────────────────
 export async function getRecentlyPlayed(limit = 20) {
-  return request(`/Users/${USER_ID}/Items?SortBy=DatePlayed&SortOrder=Descending&IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId&IsPlayed=true&Filters=IsPlayed`);
+  return request(`/Users/${USER_ID}/Items?ParentId=${VIBE_LIB}&SortBy=DatePlayed&SortOrder=Descending&IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId&IsPlayed=true&Filters=IsPlayed`);
 }
 
 export async function getRecentlyAdded(limit = 20) {
-  return request(`/Users/${USER_ID}/Items?SortBy=DateCreated&SortOrder=Descending&IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId`);
+  return request(`/Users/${USER_ID}/Items?ParentId=${VIBE_LIB}&SortBy=DateCreated&SortOrder=Descending&IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId`);
 }
 
 export async function getRecentPlaylists(limit = 10) {
@@ -45,31 +46,31 @@ export async function getRecentPlaylists(limit = 10) {
 }
 
 export async function getTopAlbums(limit = 20) {
-  return request(`/Users/${USER_ID}/Items?SortBy=PlayCount&SortOrder=Descending&IncludeItemTypes=MusicAlbum&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio`);
+  return request(`/Users/${USER_ID}/Items?ParentId=${VIBE_LIB}&SortBy=PlayCount&SortOrder=Descending&IncludeItemTypes=MusicAlbum&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio`);
 }
 
 export async function getRecentAlbums(limit = 20) {
-  return request(`/Users/${USER_ID}/Items?SortBy=DateCreated&SortOrder=Descending&IncludeItemTypes=MusicAlbum&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio`);
+  return request(`/Users/${USER_ID}/Items?ParentId=${VIBE_LIB}&SortBy=DateCreated&SortOrder=Descending&IncludeItemTypes=MusicAlbum&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio`);
 }
 
 export async function getPlayHistory(limit = 50) {
-  return request(`/Users/${USER_ID}/Items?SortBy=DatePlayed&SortOrder=Descending&IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&IsPlayed=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId`);
+  return request(`/Users/${USER_ID}/Items?ParentId=${VIBE_LIB}&SortBy=DatePlayed&SortOrder=Descending&IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&IsPlayed=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId`);
 }
 
 export async function getMostPlayedThisMonth(limit = 20) {
-  return request(`/Users/${USER_ID}/Items?SortBy=PlayCount&SortOrder=Descending&IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId`);
+  return request(`/Users/${USER_ID}/Items?ParentId=${VIBE_LIB}&SortBy=PlayCount&SortOrder=Descending&IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId`);
 }
 
 export async function getByGenre(genre, limit = 20) {
-  return request(`/Users/${USER_ID}/Items?Genres=${encodeURIComponent(genre)}&IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId`);
+  return request(`/Users/${USER_ID}/Items?ParentId=${VIBE_LIB}&Genres=${encodeURIComponent(genre)}&IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId`);
 }
 
 export async function getAllGenres() {
-  return request(`/MusicGenres?UserId=${USER_ID}&Recursive=true&SortBy=SortName`);
+  return request(`/MusicGenres?UserId=${USER_ID}&ParentId=${VIBE_LIB}&Recursive=true&SortBy=SortName`);
 }
 
 export async function getAlbums(limit = 200) {
-  return request(`/Users/${USER_ID}/Items?IncludeItemTypes=MusicAlbum&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio&SortBy=SortName`);
+  return request(`/Users/${USER_ID}/Items?ParentId=${VIBE_LIB}&IncludeItemTypes=MusicAlbum&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio&SortBy=SortName`);
 }
 
 export async function getAlbumTracks(albumId) {
@@ -77,7 +78,7 @@ export async function getAlbumTracks(albumId) {
 }
 
 export async function getArtists(limit = 200) {
-  return request(`/Artists?UserId=${USER_ID}&Limit=${limit}&Fields=PrimaryImageAspectRatio,Overview&SortBy=SortName`);
+  return request(`/Artists?UserId=${USER_ID}&ParentId=${VIBE_LIB}&Limit=${limit}&Fields=PrimaryImageAspectRatio,Overview&SortBy=SortName`);
 }
 
 export function getArtistImageUrl(artistId, size = 200) {
@@ -91,7 +92,7 @@ export function getArtistBackdropUrl(artistId) {
 }
 
 export async function getAllTracks(limit = 500) {
-  return request(`/Users/${USER_ID}/Items?IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId&SortBy=SortName`);
+  return request(`/Users/${USER_ID}/Items?ParentId=${VIBE_LIB}&IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId&SortBy=SortName`);
 }
 
 // ── Stations ──────────────────────────────────
@@ -100,7 +101,7 @@ export async function getInstantMix(itemId, limit = 50) {
 }
 
 export async function getVibeRadio(limit = 100) {
-  return request(`/Users/${USER_ID}/Items?IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&SortBy=Random&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId`);
+  return request(`/Users/${USER_ID}/Items?ParentId=${VIBE_LIB}&IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&SortBy=Random&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId`);
 }
 
 // ── Search ────────────────────────────────────
@@ -183,6 +184,21 @@ export async function markPlayed(itemId) {
   return fetch(`${url()}/Users/${USER_ID}/PlayedItems/${itemId}`, {
     method: 'POST', headers: headers(),
   }).catch(() => {});
+}
+
+// ── AI Music Library ──────────────────────────
+const AI_LIBRARY_ID = 'c05385a3a801fb8a9d4ee6a3a208bd23';
+
+export async function getAIAlbums() {
+  return request(`/Users/${USER_ID}/Items?ParentId=${AI_LIBRARY_ID}&IncludeItemTypes=MusicAlbum&Recursive=true&Fields=PrimaryImageAspectRatio,ProductionYear&SortBy=DateCreated&SortOrder=Descending`);
+}
+
+export async function getAIArtists() {
+  return request(`/Artists?UserId=${USER_ID}&ParentId=${AI_LIBRARY_ID}&Fields=PrimaryImageAspectRatio&SortBy=SortName`);
+}
+
+export async function getAITracks() {
+  return request(`/Users/${USER_ID}/Items?ParentId=${AI_LIBRARY_ID}&IncludeItemTypes=Audio&Recursive=true&Fields=RunTimeTicks,AlbumId,PrimaryImageAspectRatio,AudioInfo&SortBy=Album,ParentIndexNumber,IndexNumber&SortOrder=Ascending`);
 }
 
 export { USER_ID, request };

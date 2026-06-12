@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'icons/*.png'],
+      includeAssets: ['favicon.ico', 'favicon-16x16.png', 'favicon-32x32.png', 'icons/*.png'],
       manifest: {
         name: 'Vibe',
         short_name: 'Vibe',
@@ -18,8 +18,9 @@ export default defineConfig({
         display: 'fullscreen',
         orientation: 'portrait',
         icons: [
-          { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'icons/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'icons/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'icons/apple-touch-icon.png',       sizes: '180x180', type: 'image/png' },
         ],
       },
       workbox: {

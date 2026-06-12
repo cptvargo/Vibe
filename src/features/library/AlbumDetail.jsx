@@ -7,6 +7,7 @@ import { Loader } from '../../components/Loader';
 import { PageTransition } from '../../components/PageTransition';
 import { isFire, toggleFire } from '../../utils/fireSongs';
 import { isAlbumDownloaded, downloadAlbum, removeAlbum } from '../../utils/offlineStorage';
+import { Toast, useToast } from '../../components/Toast';
 
 function AlbumTrackRow({ track, index, accent, isActive, onPlay }) {
   const [fire, setFire] = useState(() => isFire(track.Id));
@@ -35,6 +36,7 @@ export function AlbumDetail({ album, onClose, onArtistSelect, player }) {
   const [loading,      setLoading]      = useState(true);
   const [dlState,      setDlState]      = useState('none'); // 'none' | 'downloading' | 'done'
   const [dlProgress,   setDlProgress]   = useState(0);     // 0–1
+  const { toastMessage, toastVisible, showToast } = useToast();
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -63,6 +65,7 @@ export function AlbumDetail({ album, onClose, onArtistSelect, player }) {
     setDlState('downloading'); setDlProgress(0);
     await downloadAlbum(album, tracks, (done, total) => setDlProgress(done / total));
     setDlState('done');
+    showToast(`${album.Name} saved offline`);
   };
   const handleRemove = async () => {
     await removeAlbum(album.Id);
@@ -106,14 +109,17 @@ export function AlbumDetail({ album, onClose, onArtistSelect, player }) {
                   {dlState === 'done' && Icons.cloudDone(accent)}
                   {dlState === 'none' && Icons.cloudDownload('rgba(255,255,255,0.7)')}
                   {dlState === 'downloading' && (
-                    <svg width="44" height="44" viewBox="0 0 44 44" style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }}>
-                      <circle cx="22" cy="22" r="19" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="2" />
-                      <circle cx="22" cy="22" r="19" fill="none" stroke={accent} strokeWidth="2" strokeLinecap="round"
-                        strokeDasharray={`${2 * Math.PI * 19}`}
-                        strokeDashoffset={`${2 * Math.PI * 19 * (1 - dlProgress)}`}
-                        style={{ transition: 'stroke-dashoffset 0.3s ease' }}
-                      />
-                    </svg>
+                    <>
+                      {Icons.cloudDownload('rgba(255,255,255,0.35)')}
+                      <svg width="44" height="44" viewBox="0 0 44 44" style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)', pointerEvents: 'none' }}>
+                        <circle cx="22" cy="22" r="19" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="2" />
+                        <circle cx="22" cy="22" r="19" fill="none" stroke={accent} strokeWidth="2" strokeLinecap="round"
+                          strokeDasharray={`${2 * Math.PI * 19}`}
+                          strokeDashoffset={`${2 * Math.PI * 19 * (1 - dlProgress)}`}
+                          style={{ transition: 'stroke-dashoffset 0.3s ease' }}
+                        />
+                      </svg>
+                    </>
                   )}
                 </button>
               </div>
@@ -124,6 +130,7 @@ export function AlbumDetail({ album, onClose, onArtistSelect, player }) {
           </div>
         </div>
       </PageTransition>
+      <Toast message={toastMessage} visible={toastVisible} />
     </div>
   );
 }

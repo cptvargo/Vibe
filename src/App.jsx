@@ -13,6 +13,7 @@ import { MiniPlayer }    from './features/player/MiniPlayer';
 import { Player }        from './features/player/Player';
 import { ScreenSaver }   from './features/player/ScreenSaver';
 import { MixBuilder }    from './features/mix/MixBuilder';
+import { AIView }       from './features/ai/AIView';
 import { recordPlay }    from './utils/hotTracks';
 
 export default function App() {
@@ -73,8 +74,9 @@ export default function App() {
     });
   };
 
-  const pushAlbum  = (album)  => setStack((s) => [...s, { type: 'album',  data: album }]);
-  const pushArtist = (artist) => { trackArtistView(artist); setStack((s) => [...s, { type: 'artist', data: artist }]); };
+  const pushAlbum   = (album)  => setStack((s) => [...s, { type: 'album',  data: album }]);
+  const pushArtist  = (artist) => { trackArtistView(artist); setStack((s) => [...s, { type: 'artist', data: artist }]); };
+  const pushAIArtist = (artist) => setStack((s) => [...s, { type: 'artist', data: artist }]);
   const popStack   = ()       => setStack((s) => s.slice(0, -1));
   const top        = stack[stack.length - 1] || null;
 
@@ -88,11 +90,18 @@ export default function App() {
     const normalized = tracks.map(normalizeTrack);
     if (normalized[index]?.Id) recordPlay(normalized[index].Id);
     player.play(normalized, index);
-    // Track the playing track's artist so Recent Artists updates on play, not just on nav
     const t = tracks[index];
     const artistId   = t?.ArtistItems?.[0]?.Id || t?.AlbumArtistIds?.[0];
     const artistName = t?.AlbumArtist || t?.Artists?.[0];
     if (artistId && artistName) trackArtistView({ Id: artistId, Name: artistName });
+    if (window.innerWidth < 768) player.setPlayerExpanded(true);
+  };
+
+  // AI variant — no artist tracking so AI artists never appear in Vibe Recent Artists
+  const playAndExpandAI = (tracks, index = 0) => {
+    const normalized = tracks.map(normalizeTrack);
+    if (normalized[index]?.Id) recordPlay(normalized[index].Id);
+    player.play(normalized, index);
     if (window.innerWidth < 768) player.setPlayerExpanded(true);
   };
 
@@ -128,6 +137,7 @@ export default function App() {
         )}
         {view === 'search'  && <SearchView  player={player} onAlbumSelect={pushAlbum} onArtistSelect={pushArtist} playAndExpand={playAndExpand} />}
         {view === 'library' && <LibraryView player={player} onAlbumSelect={pushAlbum} playAndExpand={playAndExpand} />}
+        {view === 'ai'      && <AIView      player={player} onAlbumSelect={pushAlbum} onArtistSelect={pushAIArtist} playAndExpand={playAndExpandAI} />}
       </main>
 
       {/* Mix builder — rendered at root level so it sits above MiniPlayer */}
@@ -141,7 +151,7 @@ export default function App() {
 
       {/* Overlay stack */}
       {top?.type === 'album'      && <AlbumDetail   album={top.data}  onClose={popStack} onArtistSelect={pushArtist} player={player} />}
-      {top?.type === 'artist'     && <ArtistDetail  artist={top.data} onClose={popStack} onAlbumSelect={pushAlbum}  player={player} />}
+      {top?.type === 'artist'     && <ArtistDetail  artist={top.data} onClose={popStack} onAlbumSelect={pushAlbum}  player={player} theme={top.data._theme} aiArtistIds={top.data._aiArtistIds} />}
       {top?.type === 'mostplayed' && <TrackListPage title={top.data.title} tracks={top.data.tracks} onClose={popStack} player={player} playAndExpand={playAndExpand} />}
       {top?.type === 'history'    && <TrackListPage title={top.data.title} tracks={top.data.tracks} onClose={popStack} player={player} playAndExpand={playAndExpand} />}
 
