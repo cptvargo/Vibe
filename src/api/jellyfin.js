@@ -74,7 +74,7 @@ export async function getAlbums(limit = 200) {
 }
 
 export async function getAlbumTracks(albumId) {
-  return request(`/Users/${USER_ID}/Items?ParentId=${albumId}&IncludeItemTypes=Audio&Fields=PrimaryImageAspectRatio,AudioInfo`);
+  return request(`/Users/${USER_ID}/Items?ParentId=${albumId}&IncludeItemTypes=Audio&Fields=PrimaryImageAspectRatio,AudioInfo,ArtistItems,AlbumArtistIds&SortBy=IndexNumber`);
 }
 
 export async function getArtists(limit = 200) {
