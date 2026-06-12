@@ -37,7 +37,7 @@ export function ScreenSaver({ track, currentTime, duration, accent, onDismiss })
   }, []);
 
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
+    const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
 
@@ -46,10 +46,7 @@ export function ScreenSaver({ track, currentTime, duration, accent, onDismiss })
   const imgUrl   = getAlbumImageUrl(track, 600);
   const safe     = accent || '#7c3aed';
 
-  const hh   = (now.getHours() % 12 || 12).toString();
-  const mm   = now.getMinutes().toString().padStart(2, '0');
-  const ampm = now.getHours() >= 12 ? 'PM' : 'AM';
-  const day  = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const day = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   const handleDismiss = () => { setThemeColor('#080810'); onDismiss(); };
 
@@ -75,15 +72,9 @@ export function ScreenSaver({ track, currentTime, duration, accent, onDismiss })
       {/* Accent tint */}
       <div style={{ position: 'absolute', inset: 0, backgroundColor: `${safe}14`, pointerEvents: 'none' }} />
 
-      {/* ── Clock ── */}
+      {/* ── Date ── */}
       <div style={{ position: 'absolute', top: 'calc(52px + env(safe-area-inset-top))', left: 0, right: 0, textAlign: 'center', pointerEvents: 'none' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: 6 }}>
-          <div style={{ fontSize: 90, fontWeight: 100, color: 'rgba(255,255,255,0.95)', letterSpacing: -5, lineHeight: 1, fontVariantNumeric: 'tabular-nums', textShadow: '0 2px 32px rgba(0,0,0,0.5)' }}>
-            {hh}<span style={{ opacity: 0.45 }}>:</span>{mm}
-          </div>
-          <div style={{ fontSize: 18, fontWeight: 300, color: 'rgba(255,255,255,0.4)', marginTop: 13, letterSpacing: 1 }}>{ampm}</div>
-        </div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.38)', marginTop: 6, letterSpacing: 1.5 }}>{day}</div>
+        <div style={{ fontSize: 15, fontWeight: 300, color: 'rgba(255,255,255,0.55)', letterSpacing: 2, textTransform: 'uppercase' }}>{day}</div>
       </div>
 
       {/* ── Song info + progress ── */}

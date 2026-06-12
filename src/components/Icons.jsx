@@ -74,4 +74,17 @@ export const Icons = {
       <path d="M12 13c0 0-2 2.5-2 3.5a2 2 0 0 0 4 0c0-1-2-3.5-2-3.5z" fill={filled ? '#fff6' : 'none'} stroke="none" />
     </svg>
   ),
+  cloudDownload: (c = '#fff') => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="8 17 12 21 16 17" />
+      <line x1="12" y1="12" x2="12" y2="21" />
+      <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29" />
+    </svg>
+  ),
+  cloudDone: (c = '#4ade80') => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29" />
+      <polyline points="9 13 11 15 15 11" />
+    </svg>
+  ),
 };

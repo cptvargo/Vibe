@@ -6,6 +6,7 @@ import { Icons } from '../../components/Icons';
 import { Loader } from '../../components/Loader';
 import { PageTransition } from '../../components/PageTransition';
 import { isFire, toggleFire } from '../../utils/fireSongs';
+import { isAlbumDownloaded, downloadAlbum, removeAlbum } from '../../utils/offlineStorage';
 
 function AlbumTrackRow({ track, index, accent, isActive, onPlay }) {
   const [fire, setFire] = useState(() => isFire(track.Id));
@@ -29,9 +30,11 @@ function AlbumTrackRow({ track, index, accent, isActive, onPlay }) {
 }
 
 export function AlbumDetail({ album, onClose, onArtistSelect, player }) {
-  const [tracks,  setTracks]  = useState([]);
-  const [colors,  setColors]  = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [tracks,       setTracks]       = useState([]);
+  const [colors,       setColors]       = useState(null);
+  const [loading,      setLoading]      = useState(true);
+  const [dlState,      setDlState]      = useState('none'); // 'none' | 'downloading' | 'done'
+  const [dlProgress,   setDlProgress]   = useState(0);     // 0–1
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -40,6 +43,7 @@ export function AlbumDetail({ album, onClose, onArtistSelect, player }) {
 
   useEffect(() => {
     getAlbumTracks(album.Id).then((r) => { setTracks(r.Items || []); setLoading(false); });
+    isAlbumDownloaded(album.Id).then(dl => { if (dl) setDlState('done'); });
     // Use 200px — same key AlbumCard primes, so cache is usually warm before this opens
     const extractUrl = getImageUrl(album.Id, 'Primary', 200);
     const cached = getCachedColors(extractUrl);
@@ -53,6 +57,17 @@ export function AlbumDetail({ album, onClose, onArtistSelect, player }) {
 
   const playAll     = (idx = 0) => { if (!tracks.length) return; player.play(tracks, idx); player.setPlayerExpanded(true); onClose(); };
   const playShuffle = ()       => { if (!tracks.length) return; player.play([...tracks].sort(() => Math.random() - 0.5), 0); player.setPlayerExpanded(true); onClose(); };
+
+  const handleDownload = async () => {
+    if (loading || !tracks.length) return;
+    setDlState('downloading'); setDlProgress(0);
+    await downloadAlbum(album, tracks, (done, total) => setDlProgress(done / total));
+    setDlState('done');
+  };
+  const handleRemove = async () => {
+    await removeAlbum(album.Id);
+    setDlState('none'); setDlProgress(0);
+  };
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 300 }}>
@@ -75,12 +90,31 @@ export function AlbumDetail({ album, onClose, onArtistSelect, player }) {
               <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
                 {album.ProductionYear && `${album.ProductionYear} · `}{tracks.length} songs · {fmtTicks(total)}
               </p>
-              <div style={{ display: 'flex', gap: 12, marginTop: 20, marginBottom: 8 }}>
+              <div style={{ display: 'flex', gap: 12, marginTop: 20, marginBottom: 8, alignItems: 'center' }}>
                 <button onClick={() => playAll(0)} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 28px', background: loading ? 'rgba(255,255,255,0.1)' : accent, border: 'none', borderRadius: 30, cursor: loading ? 'default' : 'pointer', color: '#fff', fontSize: 15, fontWeight: 700, boxShadow: loading ? 'none' : `0 4px 24px ${accent}55`, transition: 'background 0.2s' }}>
                   {loading ? '…' : <>{Icons.play('#fff')} Play</>}
                 </button>
                 <button onClick={playShuffle} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 22px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 30, cursor: loading ? 'default' : 'pointer', color: '#f1f5f9', fontSize: 15, fontWeight: 600, opacity: loading ? 0.4 : 1 }}>
                   {Icons.shuffle('#f1f5f9')} Shuffle
+                </button>
+                {/* Download button */}
+                <button
+                  onClick={dlState === 'done' ? handleRemove : handleDownload}
+                  disabled={dlState === 'downloading' || loading}
+                  style={{ width: 44, height: 44, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.15)', background: dlState === 'done' ? `${accent}22` : 'rgba(255,255,255,0.08)', cursor: dlState === 'downloading' ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, position: 'relative', transition: 'background 0.3s' }}
+                >
+                  {dlState === 'done' && Icons.cloudDone(accent)}
+                  {dlState === 'none' && Icons.cloudDownload('rgba(255,255,255,0.7)')}
+                  {dlState === 'downloading' && (
+                    <svg width="44" height="44" viewBox="0 0 44 44" style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }}>
+                      <circle cx="22" cy="22" r="19" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="2" />
+                      <circle cx="22" cy="22" r="19" fill="none" stroke={accent} strokeWidth="2" strokeLinecap="round"
+                        strokeDasharray={`${2 * Math.PI * 19}`}
+                        strokeDashoffset={`${2 * Math.PI * 19 * (1 - dlProgress)}`}
+                        style={{ transition: 'stroke-dashoffset 0.3s ease' }}
+                      />
+                    </svg>
+                  )}
                 </button>
               </div>
             </div>

@@ -5,6 +5,7 @@
 // ─────────────────────────────────────────────
 
 import { getStreamUrl, getStreamUrlFallback, reportPlaybackStart, reportPlaybackStopped, markPlayed, getAlbumImageUrl } from '../api/jellyfin';
+import { getOfflineUrl } from '../utils/offlineStorage';
 
 const FADE_DURATION  = 6;   // seconds
 const FADE_STEPS     = 120; // steps over FADE_DURATION
@@ -191,7 +192,8 @@ class VibePlayer extends EventTarget {
     audio.load(); // abort old stream
     audio.playsInline = true;
     audio.volume = this.volume;
-    audio.src = getStreamUrl(track.Id); // starts buffering immediately
+    const offlineUrl = await getOfflineUrl(track.Id);
+    audio.src = offlineUrl || getStreamUrl(track.Id);
 
     // Silence opposite slot
     other.pause();
@@ -295,12 +297,14 @@ class VibePlayer extends EventTarget {
     this._preloaded = true;
     const nextIdx = this._getNextIndex();
     if (nextIdx === -1) return;
+    const nextTrack = this.queue[nextIdx];
     const nextAudio = this.activeSlot === 'A' ? this._audioB : this._audioA;
     nextAudio.pause();
     nextAudio.src = '';
     nextAudio.load();
     nextAudio.volume = 0;
-    nextAudio.src = getStreamUrl(this.queue[nextIdx].Id);
+    const offlineUrl = await getOfflineUrl(nextTrack.Id);
+    nextAudio.src = offlineUrl || getStreamUrl(nextTrack.Id);
   }
 
   async _sweetFade() {
