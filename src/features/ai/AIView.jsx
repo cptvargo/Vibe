@@ -10,6 +10,8 @@ const SW_MAGENTA = '#e040fb';
 const SW_CYAN    = '#18ffff';
 const SW_PURPLE  = '#9c27b0';
 
+const imgName = (name) => name.replace(/Æ/g, 'AE').replace(/æ/g, 'ae');
+
 function AIHeader({ title }) {
   return (
     <h2 style={{
@@ -126,10 +128,10 @@ export function AIView({ player, onAlbumSelect, onArtistSelect, playAndExpand })
                   boxShadow: `0 0 0 2px ${SW_MAGENTA}55, 0 4px 20px ${SW_MAGENTA}30`,
                 }}>
                   <img
-                    src={`${import.meta.env.BASE_URL}artists/${a.Name}.png`}
+                    src={`${import.meta.env.BASE_URL}artists/${imgName(a.Name)}.png`}
                     alt={a.Name}
                     style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }}
-                    onError={(e) => { e.target.src = `${import.meta.env.BASE_URL}artists/${a.Name}.jpg`; e.target.onerror = () => { e.target.style.display = 'none'; }; }}
+                    onError={(e) => { e.target.src = `${import.meta.env.BASE_URL}artists/${imgName(a.Name)}.jpg`; e.target.onerror = () => { e.target.style.display = 'none'; }; }}
                   />
                 </div>
                 <div style={{ fontSize: 12, fontWeight: 600, color: '#f1f5f9', lineHeight: 1.3 }}>{a.Name}</div>

@@ -7,6 +7,7 @@ import { PageTransition } from '../../components/PageTransition';
 import { SimilarArtists } from './SimilarArtists';
 
 const SW_MAGENTA = '#e040fb';
+const imgName = (name) => name.replace(/Æ/g, 'AE').replace(/æ/g, 'ae');
 
 export function ArtistDetail({ artist, onClose, onAlbumSelect, player, theme, aiArtistIds }) {
   const isSynthwave = theme === 'synthwave';
@@ -31,7 +32,7 @@ export function ArtistDetail({ artist, onClose, onAlbumSelect, player, theme, ai
     };
     const base = import.meta.env.BASE_URL;
     tryColor(
-      [`${base}artists/${artist.Name}.jpg`, `${base}artists/${artist.Name}.png`],
+      [`${base}artists/${imgName(artist.Name)}.jpg`, `${base}artists/${imgName(artist.Name)}.png`],
       () => getArtistAlbums(artist.Id).then(r => { if (r.Items?.[0]) extractColorsUtil(getImageUrl(r.Items[0].Id, 'Primary', 200)).then(setColors); })
     );
   }, [artist.Id]);
@@ -66,7 +67,7 @@ export function ArtistDetail({ artist, onClose, onAlbumSelect, player, theme, ai
 
           {/* Hero */}
           <div style={{ position: 'relative', width: '100%', height: 420, overflow: 'hidden' }}>
-            <img src={`${import.meta.env.BASE_URL}artists/${artist.Name}.jpg`} alt={artist.Name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }} onError={(e) => { e.target.src = `${import.meta.env.BASE_URL}artists/${artist.Name}.png`; e.target.onerror = () => { e.target.style.display = 'none'; }; }} />
+            <img src={`${import.meta.env.BASE_URL}artists/${imgName(artist.Name)}.jpg`} alt={artist.Name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }} onError={(e) => { e.target.src = `${import.meta.env.BASE_URL}artists/${imgName(artist.Name)}.png`; e.target.onerror = () => { e.target.style.display = 'none'; }; }} />
             <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to bottom, rgba(0,0,0,0) 30%, rgba(8,8,16,0.7) 65%, #080810 100%), linear-gradient(to right, rgba(8,8,16,0.4), transparent 40%)` }} />
             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 120, background: `linear-gradient(to top, ${accent}18, transparent)`, mixBlendMode: 'screen' }} />
             <button onClick={onClose} style={{ position: 'absolute', top: 'calc(14px + env(safe-area-inset-top))', left: 16, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}>
