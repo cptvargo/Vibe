@@ -201,4 +201,28 @@ export async function getAITracks() {
   return request(`/Users/${USER_ID}/Items?ParentId=${AI_LIBRARY_ID}&IncludeItemTypes=Audio&Recursive=true&Fields=RunTimeTicks,AlbumId,PrimaryImageAspectRatio,AudioInfo&SortBy=Album,ParentIndexNumber,IndexNumber&SortOrder=Ascending`);
 }
 
+export async function getAIRecentlyPlayed(limit = 20) {
+  return request(`/Users/${USER_ID}/Items?ParentId=${AI_LIBRARY_ID}&SortBy=DatePlayed&SortOrder=Descending&IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId&IsPlayed=true&Filters=IsPlayed`);
+}
+
+export async function getAIRecentlyAdded(limit = 20) {
+  return request(`/Users/${USER_ID}/Items?ParentId=${AI_LIBRARY_ID}&SortBy=DateCreated&SortOrder=Descending&IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId`);
+}
+
+export async function getAITopAlbums(limit = 20) {
+  return request(`/Users/${USER_ID}/Items?ParentId=${AI_LIBRARY_ID}&SortBy=PlayCount&SortOrder=Descending&IncludeItemTypes=MusicAlbum&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio`);
+}
+
+export async function getAIMostPlayed(limit = 20) {
+  return request(`/Users/${USER_ID}/Items?ParentId=${AI_LIBRARY_ID}&SortBy=PlayCount&SortOrder=Descending&IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId`);
+}
+
+export async function getAIPlayHistory(limit = 50) {
+  return request(`/Users/${USER_ID}/Items?ParentId=${AI_LIBRARY_ID}&SortBy=DatePlayed&SortOrder=Descending&IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&IsPlayed=true&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId`);
+}
+
+export async function getAIRadio(limit = 100) {
+  return request(`/Users/${USER_ID}/Items?ParentId=${AI_LIBRARY_ID}&IncludeItemTypes=Audio&Limit=${limit}&Recursive=true&SortBy=Random&Fields=PrimaryImageAspectRatio,AudioInfo,ParentId`);
+}
+
 export { USER_ID, request };
