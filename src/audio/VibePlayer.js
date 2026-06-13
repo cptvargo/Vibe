@@ -152,6 +152,22 @@ class VibePlayer extends EventTarget {
   }
 
   // ── Queue ─────────────────────────────────────────────────────
+  // Pre-buffer a track without playing — call when user opens an album so
+  // audio data starts arriving before they hit play.
+  async prime(track) {
+    if (!track) return;
+    this._initCtx();
+    const offlineUrl = await getOfflineUrl(track.Id);
+    const inactive = this.activeSlot === 'A' ? this._audioB : this._audioA;
+    // Only prime if this track isn't already loaded somewhere
+    const streamUrl = offlineUrl || getStreamUrl(track.Id);
+    if (inactive.src !== streamUrl && this._activeAudio().src !== streamUrl) {
+      inactive.src = streamUrl;
+      inactive.volume = 0;
+      inactive.load();
+    }
+  }
+
   setQueue(tracks, startIndex = 0) {
     this.queue      = tracks;
     this.queueIndex = startIndex;

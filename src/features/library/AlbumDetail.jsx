@@ -8,6 +8,7 @@ import { PageTransition } from '../../components/PageTransition';
 import { isFire, toggleFire } from '../../utils/fireSongs';
 import { isAlbumDownloaded, downloadAlbum, removeAlbum } from '../../utils/offlineStorage';
 import { Toast, useToast } from '../../components/Toast';
+import { vibePlayer } from '../../audio/VibePlayer';
 
 function AlbumTrackRow({ track, index, accent, isActive, onPlay }) {
   const [fire, setFire] = useState(() => isFire(track.Id));
@@ -44,7 +45,7 @@ export function AlbumDetail({ album, onClose, onArtistSelect, player }) {
   }, []);
 
   useEffect(() => {
-    getAlbumTracks(album.Id).then((r) => { setTracks(r.Items || []); setLoading(false); });
+    getAlbumTracks(album.Id).then((r) => { const items = r.Items || []; setTracks(items); setLoading(false); if (items[0]) vibePlayer.prime(items[0]); });
     isAlbumDownloaded(album.Id).then(dl => { if (dl) setDlState('done'); });
     // Use 200px — same key AlbumCard primes, so cache is usually warm before this opens
     const extractUrl = getImageUrl(album.Id, 'Primary', 200);
