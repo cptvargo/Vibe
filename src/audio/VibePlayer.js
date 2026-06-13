@@ -32,6 +32,7 @@ class VibePlayer extends EventTarget {
     this._isFading    = false;
     this._preloaded   = false;
     this._progressInterval = null;
+    this._playGeneration   = 0;
   }
 
   _initCtx() {
@@ -180,34 +181,37 @@ class VibePlayer extends EventTarget {
   // ── Playback ──────────────────────────────────────────────────
   async playTrack(track) {
     this._initCtx();
+    const gen = ++this._playGeneration;
 
     const audio = this._activeAudio();
     const other = this.activeSlot === 'A' ? this._audioB : this._audioA;
 
-    // Abort previous stream then set new source — no second load() needed:
-    // setting src already invokes the load algorithm per WHATWG spec,
-    // and calling load() again would abort the in-progress fetch and restart.
     audio.pause();
     audio.src = '';
-    audio.load(); // abort old stream
+    audio.load();
     audio.playsInline = true;
     audio.volume = this.volume;
-    const offlineUrl = await getOfflineUrl(track.Id);
-    audio.src = offlineUrl || getStreamUrl(track.Id);
-
-    // Silence opposite slot
     other.pause();
     other.volume = 0;
 
+    const offlineUrl = await getOfflineUrl(track.Id);
+    if (gen !== this._playGeneration) return; // superseded by a newer playTrack call
+
+    audio.src = offlineUrl || getStreamUrl(track.Id);
+
     try {
       await audio.play();
+      if (gen !== this._playGeneration) { audio.pause(); return; }
     } catch(e) {
+      if (gen !== this._playGeneration) return;
       console.warn('Direct stream failed, trying fallback...', e);
       try {
         audio.src = getStreamUrlFallback(track.Id);
         await audio.play();
+        if (gen !== this._playGeneration) { audio.pause(); return; }
       } catch(e2) {
         console.error('Fallback stream also failed:', e2);
+        return;
       }
     }
 
@@ -221,7 +225,6 @@ class VibePlayer extends EventTarget {
     this._emit('playback-state', { isPlaying: true });
     reportPlaybackStart(track.Id);
     this._updateMediaSession(track);
-    // Seed position state so lock screen shows scrubber immediately
     if ('mediaSession' in navigator && navigator.mediaSession.setPositionState) {
       try { navigator.mediaSession.setPositionState({ duration: track.RunTimeTicks ? track.RunTimeTicks / 10_000_000 : 0, playbackRate: 1, position: 0 }); } catch (_) {}
     }
