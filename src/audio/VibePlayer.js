@@ -7,9 +7,10 @@
 import { getStreamUrl, getStreamUrlFallback, reportPlaybackStart, reportPlaybackStopped, markPlayed, getAlbumImageUrl } from '../api/jellyfin';
 import { getOfflineUrl } from '../utils/offlineStorage';
 
-const FADE_DURATION  = 6;   // seconds
-const FADE_STEPS     = 120; // steps over FADE_DURATION
-const PRELOAD_BEFORE = 25;  // seconds before end to preload next
+const FADE_DURATION   = 6;   // seconds
+const FADE_STEPS      = 120; // steps over FADE_DURATION
+const PRELOAD_BEFORE  = 25;  // seconds before end to preload next
+const PRELOAD_AFTER   = 4;   // seconds after start to preload next (so manual skips feel instant)
 
 class VibePlayer extends EventTarget {
   constructor() {
@@ -244,6 +245,12 @@ class VibePlayer extends EventTarget {
     if ('mediaSession' in navigator && navigator.mediaSession.setPositionState) {
       try { navigator.mediaSession.setPositionState({ duration: track.RunTimeTicks ? track.RunTimeTicks / 10_000_000 : 0, playbackRate: 1, position: 0 }); } catch (_) {}
     }
+    // Preload next track early so manual skips feel instant
+    setTimeout(() => {
+      if (this.currentTrack?.Id === track.Id && !this._preloaded && this._hasNext()) {
+        this._preloadNext();
+      }
+    }, PRELOAD_AFTER * 1000);
   }
 
   async next() {

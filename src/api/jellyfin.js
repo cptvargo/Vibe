@@ -15,7 +15,11 @@ const url = () => _activeUrl;
 export function initServerUrl() {
   const { localUrl, serverUrl } = VIBE_CONFIG;
   // Warm remote connection immediately — establishes QUIC/HTTP2 so first audio is fast
-  if (serverUrl) fetch(`${serverUrl}/System/Info/Public`, { cache: 'no-store' }).catch(() => {});
+  // Keep-alive ping every 30s so the connection stays open while browsing
+  if (serverUrl) {
+    fetch(`${serverUrl}/System/Info/Public`, { cache: 'no-store' }).catch(() => {});
+    setInterval(() => fetch(`${serverUrl}/System/Info/Public`, { cache: 'no-store' }).catch(() => {}), 30000);
+  }
   if (!localUrl) return;
   const ctrl = new AbortController();
   setTimeout(() => ctrl.abort(), 1500);
