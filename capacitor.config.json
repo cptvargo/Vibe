@@ -1,0 +1,19 @@
+{
+  "appId": "com.cptvargo.vibe",
+  "appName": "Vibe",
+  "webDir": "dist",
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 0
+    }
+  },
+  "ios": {
+    "backgroundColor": "#080810",
+    "contentInset": "always",
+    "allowsLinkPreview": false,
+    "scrollEnabled": false
+  },
+  "android": {
+    "backgroundColor": "#080810"
+  }
+}
