@@ -440,5 +440,15 @@ class VibePlayer extends EventTarget {
   }
 }
 
+// Native lock screen command bridge — forwards MPRemoteCommandCenter events to VibePlayer
+function setupNativeCommandBridge(player) {
+  window.addEventListener('vibePlay',  () => { player.togglePlay(); });
+  window.addEventListener('vibePause', () => { player.togglePlay(); });
+  window.addEventListener('vibeNext',  () => { player.next(); });
+  window.addEventListener('vibePrev',  () => { player.prev(); });
+}
+
 export const vibePlayer =
   window.__vibePlayer ?? (window.__vibePlayer = new VibePlayer());
+
+setupNativeCommandBridge(vibePlayer);

@@ -1,14 +1,23 @@
 import UIKit
 import Capacitor
 import AVFoundation
+import MediaPlayer
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
-    private var silentPlayer: AVAudioPlayer?
+    private var silenceEngine: AVAudioEngine?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        setupAudioSession()
+        startSilenceEngine()
+        setupRemoteCommandCenter()
+        NotificationCenter.default.addObserver(self, selector: #selector(handleInterruption(_:)), name: AVAudioSession.interruptionNotification, object: nil)
+        return true
+    }
+
+    private func setupAudioSession() {
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playback, mode: .default, options: [])
@@ -16,33 +25,71 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         } catch {
             print("[Vibe] AVAudioSession setup failed: \(error)")
         }
-        startSilentPlayer()
-        NotificationCenter.default.addObserver(self, selector: #selector(handleInterruption(_:)), name: AVAudioSession.interruptionNotification, object: nil)
-        return true
     }
 
-    // Plays a zero-amplitude buffer on loop — keeps AVAudioSession alive
-    // so iOS doesn't kill the app when HTML5 audio is paused.
-    private func startSilentPlayer() {
-        let sampleRate: Double = 44100
-        let frameCount: AVAudioFrameCount = 4410
-        guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1),
-              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return }
-        buffer.frameLength = frameCount
-        if let data = buffer.floatChannelData {
-            for i in 0..<Int(frameCount) { data[0][i] = 0.0 }
+    // AVAudioEngine playing zero-amplitude silence — no file I/O needed.
+    // Keeps AVAudioSession alive even when HTML5 audio is paused,
+    // preventing iOS from killing the background process.
+    private func startSilenceEngine() {
+        let engine = AVAudioEngine()
+        let mainMixer = engine.mainMixerNode
+        let outputNode = engine.outputNode
+        let outputFormat = outputNode.inputFormat(forBus: 0)
+
+        let silenceNode = AVAudioSourceNode(format: outputFormat) { _, _, frameCount, audioBufferList -> OSStatus in
+            let ablPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
+            for buffer in ablPointer {
+                if let data = buffer.mData {
+                    memset(data, 0, Int(buffer.mDataByteSize))
+                }
+            }
+            return noErr
         }
-        let tempUrl = FileManager.default.temporaryDirectory.appendingPathComponent("vibe_silence.caf")
+
+        engine.attach(silenceNode)
+        engine.connect(silenceNode, to: mainMixer, format: outputFormat)
+        engine.connect(mainMixer, to: outputNode, format: outputFormat)
+        mainMixer.outputVolume = 0
+
         do {
-            let file = try AVAudioFile(forWriting: tempUrl, settings: format.settings)
-            try file.write(from: buffer)
-            silentPlayer = try AVAudioPlayer(contentsOf: tempUrl)
-            silentPlayer?.numberOfLoops = -1
-            silentPlayer?.volume = 0
-            silentPlayer?.prepareToPlay()
-            silentPlayer?.play()
+            try engine.start()
+            silenceEngine = engine
         } catch {
-            print("[Vibe] Silent player failed: \(error)")
+            print("[Vibe] Silence engine failed: \(error)")
+        }
+    }
+
+    // Register native lock screen controls so iOS treats Vibe as a real music app.
+    // Commands forward to JavaScript via mediaSession which VibePlayer already handles.
+    private func setupRemoteCommandCenter() {
+        let center = MPRemoteCommandCenter.shared()
+        center.playCommand.isEnabled = true
+        center.pauseCommand.isEnabled = true
+        center.nextTrackCommand.isEnabled = true
+        center.previousTrackCommand.isEnabled = true
+
+        center.playCommand.addTarget { [weak self] _ in
+            self?.sendToJS("vibePlay")
+            return .success
+        }
+        center.pauseCommand.addTarget { [weak self] _ in
+            self?.sendToJS("vibePause")
+            return .success
+        }
+        center.nextTrackCommand.addTarget { [weak self] _ in
+            self?.sendToJS("vibeNext")
+            return .success
+        }
+        center.previousTrackCommand.addTarget { [weak self] _ in
+            self?.sendToJS("vibePrev")
+            return .success
+        }
+    }
+
+    private func sendToJS(_ event: String) {
+        DispatchQueue.main.async {
+            guard let bridge = (self.window?.rootViewController as? CAPBridgeViewController)?.bridge else { return }
+            bridge.triggerWindowJSEvent(eventName: event)
         }
     }
 
@@ -52,7 +99,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
               let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
         if type == .ended {
             try? AVAudioSession.sharedInstance().setActive(true)
-            silentPlayer?.play()
+            try? silenceEngine?.start()
         }
     }
 
