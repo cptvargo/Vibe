@@ -1,6 +1,6 @@
 {
   "appId": "com.playvibemusic.vibe",
-  "appName": "Vibe",
+  "appName": "Vibe by PlayVibe",
   "webDir": "dist",
   "plugins": {
     "SplashScreen": {
