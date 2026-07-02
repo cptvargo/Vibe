@@ -97,9 +97,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         guard let info = notification.userInfo,
               let typeValue = info[AVAudioSessionInterruptionTypeKey] as? UInt,
               let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
-        if type == .ended {
+        switch type {
+        case .began:
+            // Notify JS so it can remember whether we were playing
+            sendToJS("vibeInterruptionBegan")
+        case .ended:
             try? AVAudioSession.sharedInstance().setActive(true)
             try? silenceEngine?.start()
+            // Only auto-resume if iOS signals we should (e.g. phone call finished, not Siri)
+            let opts = (info[AVAudioSessionInterruptionOptionKey] as? UInt)
+                .map { AVAudioSession.InterruptionOptions(rawValue: $0) } ?? []
+            if opts.contains(.shouldResume) {
+                sendToJS("vibeAutoResume")
+            }
+        @unknown default:
+            break
         }
     }
 

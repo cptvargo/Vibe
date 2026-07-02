@@ -4,7 +4,7 @@
 //  Analysis via separate muted element connected to Web Audio.
 // ─────────────────────────────────────────────
 
-import { getStreamUrl, getStreamUrlFallback, reportPlaybackStart, reportPlaybackStopped, markPlayed, getAlbumImageUrl } from '../api/jellyfin';
+import { getStreamUrl, getStreamUrlFallback, reportPlaybackStart, reportPlaybackProgress, reportPlaybackStopped, markPlayed, getAlbumImageUrl } from '../api/jellyfin';
 import { getOfflineUrl } from '../utils/offlineStorage';
 
 // Synchronous native detection — window.Capacitor is injected by the Capacitor runtime
@@ -42,6 +42,9 @@ class VibePlayer extends EventTarget {
     this._native      = null;
     this._nativeReady = false;
     this._fadeTimer   = null;
+    this.isBuffering  = false;
+    this._progressReportTimer         = null;
+    this._wasPlayingBeforeInterruption = false;
   }
 
   async _initNativeAudio() {
@@ -70,13 +73,18 @@ class VibePlayer extends EventTarget {
           if (remaining <= FADE_DURATION && !this._isFading && this._hasNext()) this._sweetFade();
         }
       });
-      // Mirror AVPlayer's actual state — fires on interruptions, Bluetooth disconnect, etc.
-      this._native.addListener('statechange', ({ isPlaying }) => {
-        if (this.isPlaying === isPlaying) return;
-        this.isPlaying = isPlaying;
-        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
-        this._updateNowPlaying();
-        this._emit('playback-state', { isPlaying });
+      // Mirror AVPlayer's actual state — fires on interruptions, Bluetooth disconnect, buffering, etc.
+      this._native.addListener('statechange', ({ isPlaying, isBuffering }) => {
+        if (this.isPlaying !== isPlaying) {
+          this.isPlaying = isPlaying;
+          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+          this._updateNowPlaying();
+          this._emit('playback-state', { isPlaying });
+        }
+        if (this.isBuffering !== isBuffering) {
+          this.isBuffering = isBuffering;
+          this._emit('buffering', { isBuffering });
+        }
       });
       this._native.addListener('ended', ({ slot }) => {
         if (slot !== this.activeSlot || this._isFading) return;
@@ -167,10 +175,22 @@ class VibePlayer extends EventTarget {
       this.next();
     });
 
+    // ── Jellyfin progress reporting ───────────────────────────────
+    // Every 10s while playing so Jellyfin tracks resume position across devices.
+    this._progressReportTimer = setInterval(() => {
+      if (this.isPlaying && this.currentTrack && this.currentTime > 0) {
+        reportPlaybackProgress(this.currentTrack.Id, Math.floor(this.currentTime * 10_000_000));
+      }
+    }, 10_000);
+
     // ── Visibility: pause/resume analyser; keep native audio alive ─
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
         this._analyserEl.pause();
+        // Save exact position to Jellyfin when app backgrounds
+        if (this.currentTrack && this.currentTime > 0) {
+          reportPlaybackProgress(this.currentTrack.Id, Math.floor(this.currentTime * 10_000_000));
+        }
       } else {
         this._syncAnalyser();
         this._resumeAudio();
@@ -256,6 +276,10 @@ class VibePlayer extends EventTarget {
 
   // ── Playback ──────────────────────────────────────────────────
   async playTrack(track) {
+    // Tell Jellyfin where we stopped on the previous track before switching
+    if (this.currentTrack && this.currentTime > 0) {
+      reportPlaybackStopped(this.currentTrack.Id, Math.floor(this.currentTime * 10_000_000));
+    }
     this._cancelFade();
     this._initCtx();
     const gen = ++this._playGeneration;
@@ -357,6 +381,10 @@ class VibePlayer extends EventTarget {
       if (this.isPlaying) {
         await this._native.pause().catch(() => {});
         this.isPlaying = false;
+        // Save position to Jellyfin immediately on pause so resume position is accurate
+        if (this.currentTrack) {
+          reportPlaybackProgress(this.currentTrack.Id, Math.floor(this.currentTime * 10_000_000));
+        }
       } else {
         await this._native.resume().catch(() => {});
         this.isPlaying = true;
@@ -505,6 +533,10 @@ class VibePlayer extends EventTarget {
           this._native.setVolume({ volume: vol, slot: oldSlot }).catch(() => {});
         }
       }, stepMs);
+      // Report the outgoing track's final position before switching
+      if (this.currentTrack) {
+        reportPlaybackStopped(this.currentTrack.Id, Math.floor(this.currentTime * 10_000_000));
+      }
       this.activeSlot   = nextSlot;
       this.queueIndex   = nextIdx;
       this.currentTrack = nextTrack;
@@ -603,14 +635,21 @@ class VibePlayer extends EventTarget {
   }
 }
 
-// Native lock screen command bridge — forwards MPRemoteCommandCenter events to VibePlayer.
-// play/pause are unconditional idempotent calls (same pattern as audio_service / just_audio).
-// AVPlayer.play() when already playing is a no-op, so no feedback loop can occur.
+// Native command bridge — MPRemoteCommandCenter + audio interruption events from AppDelegate.
 function setupNativeCommandBridge(player) {
+  // Lock screen controls — unconditional idempotent calls (audio_service / just_audio pattern)
   window.addEventListener('vibePlay',  () => player._nativeForcePlay());
   window.addEventListener('vibePause', () => player._nativeForcePause());
   window.addEventListener('vibeNext',  () => player.next());
   window.addEventListener('vibePrev',  () => player.prev());
+  // Interruption handling — phone calls, Siri, other apps stealing audio session
+  window.addEventListener('vibeInterruptionBegan', () => {
+    player._wasPlayingBeforeInterruption = player.isPlaying;
+  });
+  window.addEventListener('vibeAutoResume', () => {
+    if (player._wasPlayingBeforeInterruption) player._nativeForcePlay();
+    player._wasPlayingBeforeInterruption = false;
+  });
 }
 
 export const vibePlayer =

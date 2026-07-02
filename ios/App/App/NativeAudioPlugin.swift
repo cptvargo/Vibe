@@ -174,9 +174,13 @@ public class NativeAudio: CAPPlugin, CAPBridgedPlugin {
 
     private func handlePlayerStateChange(slot: String, player: AVPlayer) {
         guard slot == activeSlot else { return }
-        let isPlaying = player.timeControlStatus == .playing
+        let isPlaying   = player.timeControlStatus == .playing
+        let isBuffering = player.timeControlStatus == .waitingToPlayAtSpecifiedRate
         DispatchQueue.main.async {
-            self.notifyListeners("statechange", data: ["isPlaying": isPlaying])
+            self.notifyListeners("statechange", data: [
+                "isPlaying":   isPlaying,
+                "isBuffering": isBuffering
+            ])
         }
     }
 
