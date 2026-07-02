@@ -7,6 +7,10 @@
 import { getStreamUrl, getStreamUrlFallback, reportPlaybackStart, reportPlaybackStopped, markPlayed, getAlbumImageUrl } from '../api/jellyfin';
 import { getOfflineUrl } from '../utils/offlineStorage';
 
+// Synchronous native detection — window.Capacitor is injected by the Capacitor runtime
+// before any JS runs, so this is always accurate on first evaluation.
+const IS_NATIVE = !!(window.Capacitor?.isNativePlatform?.());
+
 const FADE_DURATION   = 6;   // seconds
 const FADE_STEPS      = 120; // steps over FADE_DURATION
 const PRELOAD_BEFORE  = 25;  // seconds before end to preload next
@@ -34,15 +38,15 @@ class VibePlayer extends EventTarget {
     this._preloaded   = false;
     this._progressInterval = null;
     this._playGeneration   = 0;
-    this._isNative    = false;
+    this._isNative    = IS_NATIVE;
     this._native      = null;
+    this._nativeReady = false;
   }
 
   async _initNativeAudio() {
+    if (!IS_NATIVE) return;
     try {
-      const { Capacitor, registerPlugin } = await import('@capacitor/core');
-      if (!Capacitor.isNativePlatform()) return;
-      this._isNative = true;
+      const { registerPlugin } = await import('@capacitor/core');
       this._native = registerPlugin('NativeAudio');
       this._native.addListener('timeupdate', ({ currentTime, slot }) => {
         if (slot !== this.activeSlot) return;
@@ -61,14 +65,16 @@ class VibePlayer extends EventTarget {
         if (slot !== this.activeSlot || this._isFading) return;
         this.next();
       });
+      this._nativeReady = true;
     } catch(e) {
       console.warn('[Vibe] Native audio init failed:', e);
+      this._isNative = false; // fall back to HTML5 if plugin fails
     }
   }
 
   _initCtx() {
     if (this.ctx) return;
-    if (!this._native && !this._isNative) this._initNativeAudio();
+    if (IS_NATIVE && !this._native) this._initNativeAudio();
     this.ctx      = new (window.AudioContext || window.webkitAudioContext)();
     this.analyser = this.ctx.createAnalyser();
     this.analyser.fftSize = 256;
@@ -235,7 +241,7 @@ class VibePlayer extends EventTarget {
     if (gen !== this._playGeneration) return;
     const streamUrl = offlineUrl || getStreamUrl(track.Id);
 
-    if (this._isNative && this._native) {
+    if (this._isNative && this._nativeReady && this._native) {
       // ── Native AVPlayer path ──────────────────────────────────
       try {
         await this._native.play({ url: streamUrl, slot: this.activeSlot });
@@ -311,7 +317,7 @@ class VibePlayer extends EventTarget {
   }
 
   async togglePlay() {
-    if (this._isNative && this._native) {
+    if (this._isNative && this._nativeReady && this._native) {
       if (this.isPlaying) {
         await this._native.pause().catch(() => {});
         this.isPlaying = false;
@@ -343,7 +349,7 @@ class VibePlayer extends EventTarget {
   }
 
   seek(seconds) {
-    if (this._isNative && this._native) {
+    if (this._isNative && this._nativeReady && this._native) {
       this._native.seek({ seconds }).catch(() => {});
       this.currentTime = seconds;
       return;
@@ -357,7 +363,7 @@ class VibePlayer extends EventTarget {
 
   setVolume(v) {
     this.volume = Math.max(0, Math.min(1, v));
-    if (this._isNative && this._native) {
+    if (this._isNative && this._nativeReady && this._native) {
       this._native.setVolume({ volume: this.volume, slot: this.activeSlot }).catch(() => {});
       return;
     }
@@ -397,7 +403,7 @@ class VibePlayer extends EventTarget {
     const nextTrack = this.queue[nextIdx];
     const offlineUrl = await getOfflineUrl(nextTrack.Id);
     const streamUrl = offlineUrl || getStreamUrl(nextTrack.Id);
-    if (this._isNative && this._native) {
+    if (this._isNative && this._nativeReady && this._native) {
       const nextSlot = this.activeSlot === 'A' ? 'B' : 'A';
       this._native.preload({ url: streamUrl, slot: nextSlot }).catch(() => {});
       return;
@@ -418,7 +424,7 @@ class VibePlayer extends EventTarget {
     const nextTrack = this.queue[nextIdx];
     const nextSlot  = this.activeSlot === 'A' ? 'B' : 'A';
 
-    if (this._isNative && this._native) {
+    if (this._isNative && this._nativeReady && this._native) {
       const offlineUrl = await getOfflineUrl(nextTrack.Id);
       const streamUrl = offlineUrl || getStreamUrl(nextTrack.Id);
       await this._native.play({ url: streamUrl, slot: nextSlot }).catch(() => {});
