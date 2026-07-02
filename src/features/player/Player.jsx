@@ -94,7 +94,7 @@ export function Player({ track, isPlaying, progress, currentTime, duration, volu
         style={{ position: 'relative', zIndex: 2, height: '100%', overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', touchAction: 'pan-y' }}
       >
         {/* Main view — full viewport height */}
-        <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
+        <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
 
           {/* Drag handle */}
           <div
@@ -125,7 +125,7 @@ export function Player({ track, isPlaying, progress, currentTime, duration, volu
           </div>
 
           {/* Controls anchored to bottom */}
-          <div style={{ padding: '0 28px' }}>
+          <div style={{ padding: '0 28px 20px' }}>
 
             {/* Track info */}
             <div style={{ marginBottom: 18, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
