@@ -70,6 +70,14 @@ class VibePlayer extends EventTarget {
           if (remaining <= FADE_DURATION && !this._isFading && this._hasNext()) this._sweetFade();
         }
       });
+      // Mirror AVPlayer's actual state — fires on interruptions, Bluetooth disconnect, etc.
+      this._native.addListener('statechange', ({ isPlaying }) => {
+        if (this.isPlaying === isPlaying) return;
+        this.isPlaying = isPlaying;
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+        this._updateNowPlaying();
+        this._emit('playback-state', { isPlaying });
+      });
       this._native.addListener('ended', ({ slot }) => {
         if (slot !== this.activeSlot || this._isFading) return;
         this.next();

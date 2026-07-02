@@ -23,6 +23,8 @@ public class NativeAudio: CAPPlugin, CAPBridgedPlugin {
     private var activeSlot: String = "A"
     private var timeObserverA: Any?
     private var timeObserverB: Any?
+    private var kvoA: NSKeyValueObservation?
+    private var kvoB: NSKeyValueObservation?
     private var artworkCache: [String: MPMediaItemArtwork] = [:]
 
     private var activePlayer: AVPlayer? {
@@ -153,12 +155,28 @@ public class NativeAudio: CAPPlugin, CAPBridgedPlugin {
         let item = AVPlayerItem(url: url)
         if slot == "A" {
             removeTimeObserver(slot: "A")
+            kvoA?.invalidate()
             playerA = AVPlayer(playerItem: item)
             playerA?.volume = 1
+            kvoA = playerA?.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
+                self?.handlePlayerStateChange(slot: "A", player: player)
+            }
         } else {
             removeTimeObserver(slot: "B")
+            kvoB?.invalidate()
             playerB = AVPlayer(playerItem: item)
             playerB?.volume = 1
+            kvoB = playerB?.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
+                self?.handlePlayerStateChange(slot: "B", player: player)
+            }
+        }
+    }
+
+    private func handlePlayerStateChange(slot: String, player: AVPlayer) {
+        guard slot == activeSlot else { return }
+        let isPlaying = player.timeControlStatus == .playing
+        DispatchQueue.main.async {
+            self.notifyListeners("statechange", data: ["isPlaying": isPlaying])
         }
     }
 
