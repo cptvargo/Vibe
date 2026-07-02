@@ -1,6 +1,7 @@
 name: iOS Build & TestFlight
 
 on:
+  workflow_dispatch:  # trigger manually from GitHub Actions tab
   push:
     branches: [main]
     paths:
