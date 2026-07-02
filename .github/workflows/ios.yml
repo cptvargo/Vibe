@@ -9,6 +9,7 @@ on:
       - 'ios/**'
       - 'capacitor.config.json'
       - 'package.json'
+      - '.github/workflows/ios.yml'
 
 jobs:
   build:
