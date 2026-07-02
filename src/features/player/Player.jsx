@@ -88,12 +88,13 @@ export function Player({ track, isPlaying, progress, currentTime, duration, volu
       {/* Bottom accent bloom */}
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '50%', zIndex: 1, background: `radial-gradient(ellipse at 50% 120%, ${accent}22 0%, transparent 60%)`, pointerEvents: 'none', transition: 'background 700ms ease' }} />
 
-      {/* Scrollable surface */}
+      {/* Scrollable surface — absolute inset gives it an explicit pixel size so
+           minHeight: 100% on the child resolves correctly in WKWebView */}
       <div
         ref={scrollRef}
-        style={{ position: 'relative', zIndex: 2, height: '100%', overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', touchAction: 'pan-y' }}
+        style={{ position: 'absolute', inset: 0, zIndex: 2, overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', touchAction: 'pan-y' }}
       >
-        {/* Main view — fill the fixed outer container (avoids WKWebView dvh stale-computation gap) */}
+        {/* Main view — fills the scroll container (= full screen) */}
         <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
 
           {/* Drag handle */}

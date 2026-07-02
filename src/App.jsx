@@ -126,7 +126,7 @@ export default function App() {
 
       <NavBar active={view} onChange={(v) => { setStack([]); setView(v); }} blocked={player.playerExpanded} />
 
-      <main style={{ paddingTop: 'calc(72px + env(safe-area-inset-top))', paddingBottom: 'calc(120px + env(safe-area-inset-bottom))', paddingLeft: 20, paddingRight: 20, maxWidth: 760, margin: '0 auto', position: 'relative', zIndex: 1, pointerEvents: player.playerExpanded ? 'none' : 'auto', touchAction: player.playerExpanded ? 'none' : 'auto', overflowY: player.playerExpanded ? 'hidden' : 'visible' }}>
+      <main style={{ paddingTop: 'calc(72px + env(safe-area-inset-top))', paddingBottom: 'calc(96px + env(safe-area-inset-bottom))', paddingLeft: 20, paddingRight: 20, maxWidth: 760, margin: '0 auto', position: 'relative', zIndex: 1, pointerEvents: player.playerExpanded ? 'none' : 'auto', touchAction: player.playerExpanded ? 'none' : 'auto', overflowY: player.playerExpanded ? 'hidden' : 'visible' }}>
         {view === 'home' && (
           <HomeView
             player={player} onAlbumSelect={pushAlbum} onArtistSelect={pushArtist}

@@ -10,6 +10,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private var silenceEngine: AVAudioEngine?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Match native window background to app theme so the safe-area zone
+        // never flashes or shows as a different color behind web content.
+        window?.backgroundColor = UIColor(red: 8/255, green: 8/255, blue: 16/255, alpha: 1)
         setupAudioSession()
         startSilenceEngine()
         setupRemoteCommandCenter()
