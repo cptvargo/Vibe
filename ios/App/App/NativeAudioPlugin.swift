@@ -117,6 +117,12 @@ public class NativeAudio: CAPPlugin, CAPBridgedPlugin {
         if let currentTime = call.getDouble("currentTime") { info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime }
         info[MPNowPlayingInfoPropertyPlaybackRate] = call.getBool("isPlaying", false) ? 1.0 : 0.0
 
+        // Tell iOS the definitive playback state so the lock screen shows the right button
+        if #available(iOS 13.0, *) {
+            MPNowPlayingInfoCenter.default().playbackState =
+                (call.getBool("isPlaying", false) ?? false) ? .playing : .paused
+        }
+
         if let artworkUrl = call.getString("artworkUrl") {
             if let cached = artworkCache[artworkUrl] {
                 info[MPMediaItemPropertyArtwork] = cached

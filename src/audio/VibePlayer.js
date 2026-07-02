@@ -65,8 +65,6 @@ class VibePlayer extends EventTarget {
         }
         if (this.duration > 0) {
           this._emit('progress', { currentTime, duration: this.duration });
-          // Refresh lock screen position every ~10s so its auto-advancing timer stays accurate
-          if (Math.round(currentTime) % 10 === 0) this._updateNowPlaying();
           const remaining = this.duration - currentTime;
           if (currentTime > 2 && remaining <= PRELOAD_BEFORE && !this._preloaded && this._hasNext()) this._preloadNext();
           if (remaining <= FADE_DURATION && !this._isFading && this._hasNext()) this._sweetFade();
@@ -401,6 +399,24 @@ class VibePlayer extends EventTarget {
     if (audio) audio.volume = this.volume;
   }
 
+  async _nativeForcePlay() {
+    if (!this._isNative || !this._nativeReady || !this._native) return;
+    await this._native.resume().catch(() => {});
+    this.isPlaying = true;
+    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+    this._updateNowPlaying();
+    this._emit('playback-state', { isPlaying: true });
+  }
+
+  async _nativeForcePause() {
+    if (!this._isNative || !this._nativeReady || !this._native) return;
+    await this._native.pause().catch(() => {});
+    this.isPlaying = false;
+    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+    this._updateNowPlaying();
+    this._emit('playback-state', { isPlaying: false });
+  }
+
   _updateNowPlaying() {
     if (!this._isNative || !this._native || !this.currentTrack) return;
     // Use RunTimeTicks as fallback so the lock screen never gets duration:0,
@@ -580,13 +596,13 @@ class VibePlayer extends EventTarget {
 }
 
 // Native lock screen command bridge — forwards MPRemoteCommandCenter events to VibePlayer.
-// vibePlay and vibePause are directional (not toggles) so a spurious iOS command
-// can't accidentally pause a playing track or play a paused one.
+// play/pause are unconditional idempotent calls (same pattern as audio_service / just_audio).
+// AVPlayer.play() when already playing is a no-op, so no feedback loop can occur.
 function setupNativeCommandBridge(player) {
-  window.addEventListener('vibePlay',  () => { if (!player.isPlaying) player.togglePlay(); });
-  window.addEventListener('vibePause', () => { if (player.isPlaying)  player.togglePlay(); });
-  window.addEventListener('vibeNext',  () => { player.next(); });
-  window.addEventListener('vibePrev',  () => { player.prev(); });
+  window.addEventListener('vibePlay',  () => player._nativeForcePlay());
+  window.addEventListener('vibePause', () => player._nativeForcePause());
+  window.addEventListener('vibeNext',  () => player.next());
+  window.addEventListener('vibePrev',  () => player.prev());
 }
 
 export const vibePlayer =
