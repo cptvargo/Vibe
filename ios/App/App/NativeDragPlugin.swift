@@ -6,22 +6,20 @@ import UIKit
 /// drag-to-dismiss gesture directly from UIKit, bypassing WKWebView
 /// pointer-event latency and touch-action conflicts.
 ///
-/// JS side calls setEnabled(true) when the player opens and
-/// setScrollTop(value) on scroll so Swift knows when the inner
-/// overflow div is scrolled to the top (safe to start a dismiss drag).
+/// Restricted to the drag handle zone (safe-area top + 72pt) so queue
+/// scrolling and other interactions below the handle are never intercepted.
+/// JS calls setEnabled(true/false) when the player opens/closes.
 @objc(NativeDrag)
 public class NativeDrag: CAPPlugin, CAPBridgedPlugin, UIGestureRecognizerDelegate {
     public let identifier = "NativeDrag"
     public let jsName     = "NativeDrag"
     public let pluginMethods: [CAPPluginMethod] = [
-        CAPPluginMethod(name: "setEnabled",   returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "setScrollTop", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setEnabled", returnType: CAPPluginReturnPromise),
     ]
 
-    private var pan:       UIPanGestureRecognizer?
-    private var enabled:   Bool    = false
-    private var scrollTop: CGFloat = 0   // latest value pushed from JS on scroll
-    private var active:    Bool    = false  // this gesture instance is a confirmed drag
+    private var pan:     UIPanGestureRecognizer?
+    private var enabled: Bool = false
+    private var active:  Bool = false  // this gesture is a confirmed drag-to-dismiss
 
     public override func load() {
         DispatchQueue.main.async {
@@ -44,12 +42,6 @@ public class NativeDrag: CAPPlugin, CAPBridgedPlugin, UIGestureRecognizerDelegat
         call.resolve()
     }
 
-    @objc func setScrollTop(_ call: CAPPluginCall) {
-        let value = CGFloat(call.getDouble("value", 0) ?? 0)
-        DispatchQueue.main.async { self.scrollTop = value }
-        call.resolve()
-    }
-
     // MARK: – Gesture handler
 
     @objc private func handlePan(_ gr: UIPanGestureRecognizer) {
@@ -59,11 +51,17 @@ public class NativeDrag: CAPPlugin, CAPBridgedPlugin, UIGestureRecognizerDelegat
 
         switch gr.state {
         case .began:
-            // Only activate when swiping down and the inner scroll is at the top
-            if t.y > 0 && scrollTop < 2 {
+            // Only activate when touch starts inside the drag handle zone.
+            // The handle sits just below the safe area inset (~36pt tall).
+            // We use safeAreaInsets from the webView's window so the zone
+            // tracks correctly on every device regardless of notch/island size.
+            let safeTop  = webView?.safeAreaInsets.top ?? 0
+            let location = gr.location(in: gr.view)
+            let inHandleZone = location.y < (safeTop + 72)   // safe-area + handle height + buffer
+
+            if inHandleZone && t.y > 0 {
                 active = true
-                // Reset translation so deltaY starts from 0 regardless of
-                // how far the recognizer traveled before .began fired
+                // Reset translation so deltaY is relative to when .began fired
                 gr.setTranslation(.zero, in: gr.view)
                 notifyListeners("dragStart", data: [:])
             }

@@ -66,25 +66,6 @@ export function useDragToClose(onClose, scrollRef) {
     };
   }, [setStyle, dismiss]);
 
-  // Sync inner-div scrollTop to Swift so it knows when drag-to-close is safe
-  useEffect(() => {
-    if (!IS_NATIVE || !scrollRef?.current) return;
-    let nativeDrag = null;
-
-    const sync = async () => {
-      const { registerPlugin } = await import('@capacitor/core');
-      nativeDrag = registerPlugin('NativeDrag');
-      const el = scrollRef.current;
-      const onScroll = () => nativeDrag.setScrollTop({ value: el.scrollTop }).catch(() => {});
-      el.addEventListener('scroll', onScroll, { passive: true });
-      return () => el.removeEventListener('scroll', onScroll);
-    };
-
-    let cleanup;
-    sync().then(fn => { cleanup = fn; }).catch(() => {});
-    return () => cleanup?.();
-  }, [scrollRef]);
-
   // ── Web / PWA pointer events (also runs if NativeDrag plugin absent) ──
   // Handle pointer capture on the grab bar so move/up events aren't lost
   // when the finger travels outside the handle div during the drag.
