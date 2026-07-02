@@ -11,7 +11,7 @@
     "backgroundColor": "#080810",
     "contentInset": "always",
     "allowsLinkPreview": false,
-    "scrollEnabled": false
+    "scrollEnabled": true
   },
   "android": {
     "backgroundColor": "#080810"
