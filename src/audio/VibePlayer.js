@@ -55,10 +55,18 @@ class VibePlayer extends EventTarget {
         if (slot !== this.activeSlot) return;
         this.currentTime = currentTime;
         if (this.duration < 1) {
-          this._native.getDuration().then(({ duration }) => { if (duration > 0) this.duration = duration; }).catch(() => {});
+          this._native.getDuration().then(({ duration }) => {
+            if (duration > 0) {
+              this.duration = duration;
+              // Push real duration to lock screen now that we have it
+              this._updateNowPlaying();
+            }
+          }).catch(() => {});
         }
         if (this.duration > 0) {
           this._emit('progress', { currentTime, duration: this.duration });
+          // Refresh lock screen position every ~10s so its auto-advancing timer stays accurate
+          if (Math.round(currentTime) % 10 === 0) this._updateNowPlaying();
           const remaining = this.duration - currentTime;
           if (currentTime > 2 && remaining <= PRELOAD_BEFORE && !this._preloaded && this._hasNext()) this._preloadNext();
           if (remaining <= FADE_DURATION && !this._isFading && this._hasNext()) this._sweetFade();
@@ -252,6 +260,9 @@ class VibePlayer extends EventTarget {
 
     let usedNative = false;
     if (this._isNative && this._nativeReady && this._native) {
+      // Stop HTML5 elements in case a previous song used the fallback path while native was initializing
+      if (this._audioA) { this._audioA.pause(); this._audioA.src = ''; }
+      if (this._audioB) { this._audioB.pause(); this._audioB.src = ''; }
       // ── Native AVPlayer path ──────────────────────────────────
       try {
         await this._native.play({ url: streamUrl, slot: this.activeSlot });
@@ -392,11 +403,16 @@ class VibePlayer extends EventTarget {
 
   _updateNowPlaying() {
     if (!this._isNative || !this._native || !this.currentTrack) return;
+    // Use RunTimeTicks as fallback so the lock screen never gets duration:0,
+    // which causes iOS to fire spurious playCommand events and freeze the timer.
+    const knownDuration = this.duration > 0
+      ? this.duration
+      : (this.currentTrack.RunTimeTicks ? this.currentTrack.RunTimeTicks / 10_000_000 : 0);
     this._native.setNowPlaying({
       title:       this.currentTrack.Name || '',
       artist:      this.currentTrack.AlbumArtist || this.currentTrack.Artists?.[0] || '',
       album:       this.currentTrack.Album || '',
-      duration:    this.duration,
+      duration:    knownDuration,
       currentTime: this.currentTime,
       isPlaying:   this.isPlaying,
       artworkUrl:  getAlbumImageUrl(this.currentTrack, 300) || '',
@@ -563,10 +579,12 @@ class VibePlayer extends EventTarget {
   }
 }
 
-// Native lock screen command bridge — forwards MPRemoteCommandCenter events to VibePlayer
+// Native lock screen command bridge — forwards MPRemoteCommandCenter events to VibePlayer.
+// vibePlay and vibePause are directional (not toggles) so a spurious iOS command
+// can't accidentally pause a playing track or play a paused one.
 function setupNativeCommandBridge(player) {
-  window.addEventListener('vibePlay',  () => { player.togglePlay(); });
-  window.addEventListener('vibePause', () => { player.togglePlay(); });
+  window.addEventListener('vibePlay',  () => { if (!player.isPlaying) player.togglePlay(); });
+  window.addEventListener('vibePause', () => { if (player.isPlaying)  player.togglePlay(); });
   window.addEventListener('vibeNext',  () => { player.next(); });
   window.addEventListener('vibePrev',  () => { player.prev(); });
 }
