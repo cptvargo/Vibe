@@ -41,6 +41,7 @@ class VibePlayer extends EventTarget {
     this._isNative    = IS_NATIVE;
     this._native      = null;
     this._nativeReady = false;
+    this._fadeTimer   = null;
   }
 
   async _initNativeAudio() {
@@ -234,8 +235,14 @@ class VibePlayer extends EventTarget {
     return -1;
   }
 
+  _cancelFade() {
+    if (this._fadeTimer) { clearInterval(this._fadeTimer); this._fadeTimer = null; }
+    this._isFading = false;
+  }
+
   // ── Playback ──────────────────────────────────────────────────
   async playTrack(track) {
+    this._cancelFade();
     this._initCtx();
     const gen = ++this._playGeneration;
 
@@ -304,7 +311,7 @@ class VibePlayer extends EventTarget {
   }
 
   async next() {
-    this._isFading  = false;
+    this._cancelFade();
     this._preloaded = false;
     const idx = this._getNextIndex();
     if (idx === -1) { this.isPlaying = false; this._emit('playback-state', { isPlaying: false }); return; }
@@ -313,7 +320,7 @@ class VibePlayer extends EventTarget {
   }
 
   async prev() {
-    this._isFading  = false;
+    this._cancelFade();
     this._preloaded = false;
     if (this.currentTime > 3) {
       if (this._isNative && this._nativeReady && this._native) {
@@ -439,17 +446,24 @@ class VibePlayer extends EventTarget {
     if (this._isNative && this._nativeReady && this._native) {
       const offlineUrl = await getOfflineUrl(nextTrack.Id);
       const streamUrl = offlineUrl || getStreamUrl(nextTrack.Id);
+      const oldSlot = this.activeSlot; // capture BEFORE updating activeSlot
       await this._native.play({ url: streamUrl, slot: nextSlot }).catch(() => {});
-      this._native.setVolume({ volume: 0, slot: this.activeSlot }).catch(() => {});
+      this._native.setVolume({ volume: 0, slot: nextSlot }).catch(() => {});
       const stepMs = (FADE_DURATION * 1000) / FADE_STEPS;
       const vol = this.volume;
       let step = 0;
-      const timer = setInterval(() => {
+      this._fadeTimer = setInterval(() => {
         step++;
         const t = Math.min(step / FADE_STEPS, 1);
-        this._native.setVolume({ volume: vol * (1 - t), slot: this.activeSlot }).catch(() => {});
-        this._native.setVolume({ volume: vol * t, slot: nextSlot }).catch(() => {});
-        if (t >= 1) { clearInterval(timer); this._isFading = false; }
+        this._native.setVolume({ volume: vol * (1 - t), slot: oldSlot }).catch(() => {});
+        this._native.setVolume({ volume: vol * t,       slot: nextSlot }).catch(() => {});
+        if (t >= 1) {
+          clearInterval(this._fadeTimer);
+          this._fadeTimer  = null;
+          this._isFading   = false;
+          // restore old slot volume so it's ready for next crossfade
+          this._native.setVolume({ volume: vol, slot: oldSlot }).catch(() => {});
+        }
       }, stepMs);
       this.activeSlot   = nextSlot;
       this.queueIndex   = nextIdx;
@@ -478,13 +492,14 @@ class VibePlayer extends EventTarget {
     const stepMs  = (FADE_DURATION * 1000) / FADE_STEPS;
     const startVol = this.volume;
     let step = 0;
-    const timer = setInterval(() => {
+    this._fadeTimer = setInterval(() => {
       step++;
       const t = Math.min(step / FADE_STEPS, 1);
       currAudio.volume = startVol * (1 - t);
       nextAudio.volume = startVol * t;
       if (t >= 1) {
-        clearInterval(timer);
+        clearInterval(this._fadeTimer);
+        this._fadeTimer = null;
         currAudio.pause();
         currAudio.src = '';
         this._isFading = false;
