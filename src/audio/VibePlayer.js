@@ -48,6 +48,8 @@ class VibePlayer extends EventTarget {
     try {
       const { registerPlugin } = await import('@capacitor/core');
       this._native = registerPlugin('NativeAudio');
+      // Verify the plugin is actually connected (throws if Swift side isn't registered)
+      await this._native.getDuration();
       this._native.addListener('timeupdate', ({ currentTime, slot }) => {
         if (slot !== this.activeSlot) return;
         this.currentTime = currentTime;
@@ -241,6 +243,7 @@ class VibePlayer extends EventTarget {
     if (gen !== this._playGeneration) return;
     const streamUrl = offlineUrl || getStreamUrl(track.Id);
 
+    let usedNative = false;
     if (this._isNative && this._nativeReady && this._native) {
       // ── Native AVPlayer path ──────────────────────────────────
       try {
@@ -248,12 +251,14 @@ class VibePlayer extends EventTarget {
         if (gen !== this._playGeneration) return;
         this.duration = 0;
         this._native.getDuration().then(({ duration }) => { if (duration > 0) this.duration = duration; }).catch(() => {});
+        usedNative = true;
       } catch(e) {
-        console.warn('[Vibe] Native play failed:', e);
-        return;
+        console.warn('[Vibe] Native play failed, falling back to HTML5:', e);
       }
-    } else {
-      // ── HTML5 audio path (PWA / web) ──────────────────────────
+    }
+
+    if (!usedNative) {
+      // ── HTML5 audio path (PWA / web / native fallback) ────────
       const audio = this._activeAudio();
       const other = this.activeSlot === 'A' ? this._audioB : this._audioA;
       audio.pause();
@@ -310,7 +315,14 @@ class VibePlayer extends EventTarget {
   async prev() {
     this._isFading  = false;
     this._preloaded = false;
-    if (this.currentTime > 3) { this._activeAudio().currentTime = 0; return; }
+    if (this.currentTime > 3) {
+      if (this._isNative && this._nativeReady && this._native) {
+        await this._native.seek({ seconds: 0 }).catch(() => {});
+      } else {
+        this._activeAudio().currentTime = 0;
+      }
+      return;
+    }
     const idx = Math.max(0, this.queueIndex - 1);
     this.queueIndex = idx;
     await this.playTrack(this.queue[idx]);
