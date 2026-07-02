@@ -4,3 +4,12 @@ dist
 .env.local
 .DS_Store
 *.local
+
+# iOS signing — never commit these
+*.p12
+*.p8
+*.key
+*.cer
+*.pem
+*.csr
+*.mobileprovision
