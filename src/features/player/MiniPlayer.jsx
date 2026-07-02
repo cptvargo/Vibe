@@ -10,7 +10,7 @@ export function MiniPlayer({ track, isPlaying, progress, onToggle, onNext, onPre
   return (
     <div
       data-miniplayer="true"
-      style={{ position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)', width: 'calc(100% - 32px)', maxWidth: 700, background: 'rgba(12,12,20,0.96)', backdropFilter: 'blur(24px)', borderRadius: 18, border: `1px solid ${accent}30`, boxShadow: `0 8px 48px rgba(0,0,0,0.7), 0 0 0 1px ${accent}12`, zIndex: 400, padding: '10px 14px 14px', display: 'flex', alignItems: 'center', gap: 12 }}
+      style={{ position: 'fixed', bottom: 'calc(16px + env(safe-area-inset-bottom))', left: '50%', transform: 'translateX(-50%)', width: 'calc(100% - 32px)', maxWidth: 700, background: 'rgba(12,12,20,0.96)', backdropFilter: 'blur(24px)', borderRadius: 18, border: `1px solid ${accent}30`, boxShadow: `0 8px 48px rgba(0,0,0,0.7), 0 0 0 1px ${accent}12`, zIndex: 400, padding: '10px 14px 14px', display: 'flex', alignItems: 'center', gap: 12 }}
     >
       <div onClick={onExpand} style={{ cursor: 'pointer', flexShrink: 0 }}>
         <AlbumArt track={track} size={44} radius={8} />
