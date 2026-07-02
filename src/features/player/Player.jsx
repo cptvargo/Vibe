@@ -14,7 +14,7 @@ export function Player({ track, isPlaying, progress, currentTime, duration, volu
   const [fire, setFire] = useState(() => isFire(track?.Id));
   useEffect(() => { setFire(isFire(track?.Id)); }, [track?.Id]);
   const scrollRef = useRef(null);
-  const { elRef, onHandlePointerDown, onPointerDown, onPointerMove, onPointerUp } = useDragToClose(onClose, scrollRef);
+  const { elRef, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp, onPointerDown, onPointerMove, onPointerUp } = useDragToClose(onClose, scrollRef);
 
   const bgRef       = useRef(null);
   const artRef      = useRef(null);
@@ -93,12 +93,15 @@ export function Player({ track, isPlaying, progress, currentTime, duration, volu
         ref={scrollRef}
         style={{ position: 'relative', zIndex: 2, height: '100%', overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', touchAction: 'pan-y' }}
       >
-        {/* Main view — full viewport height */}
-        <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        {/* Main view — fill the fixed outer container (avoids WKWebView dvh stale-computation gap) */}
+        <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
 
           {/* Drag handle */}
           <div
             onPointerDown={onHandlePointerDown}
+            onPointerMove={onHandlePointerMove}
+            onPointerUp={onHandlePointerUp}
+            onPointerCancel={onHandlePointerUp}
             style={{ width: '100%', height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none', cursor: 'grab' }}
           >
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.22)' }} />
