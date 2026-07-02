@@ -7,6 +7,16 @@
 import { getStreamUrl, getStreamUrlFallback, reportPlaybackStart, reportPlaybackStopped, markPlayed, getAlbumImageUrl } from '../api/jellyfin';
 import { getOfflineUrl } from '../utils/offlineStorage';
 
+let _audioSession = null;
+async function keepAudioSessionAlive() {
+  try {
+    const { Capacitor, registerPlugin } = await import('@capacitor/core');
+    if (!Capacitor.isNativePlatform()) return;
+    if (!_audioSession) _audioSession = registerPlugin('AudioSessionPlugin');
+    _audioSession.activate().catch(() => {});
+  } catch (_) {}
+}
+
 const FADE_DURATION   = 6;   // seconds
 const FADE_STEPS      = 120; // steps over FADE_DURATION
 const PRELOAD_BEFORE  = 25;  // seconds before end to preload next
@@ -410,6 +420,7 @@ class VibePlayer extends EventTarget {
       this.isPlaying = false;
       navigator.mediaSession.playbackState = 'paused';
       this._emit('playback-state', { isPlaying: false });
+      keepAudioSessionAlive();
     });
     navigator.mediaSession.setActionHandler('nexttrack',     () => this.next());
     navigator.mediaSession.setActionHandler('previoustrack', () => this.prev());

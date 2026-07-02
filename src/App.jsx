@@ -116,6 +116,7 @@ export default function App() {
         *{-webkit-tap-highlight-color:transparent}
         body,*{user-select:none;-webkit-user-select:none}
         button,div{-webkit-touch-callout:none}
+        html,body{height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch}
       `}</style>
 
       {/* Ambient album color — bleeds into the whole app including NavBar's blur */}
