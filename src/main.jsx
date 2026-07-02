@@ -6,7 +6,21 @@ import { initAnalyticsListener } from './features/analytics/analyticsListener'
 import { initServerUrl } from './api/jellyfin'
 
 initAnalyticsListener()
-initServerUrl() // non-blocking: detects LAN vs remote before user taps first song
+initServerUrl()
+
+// Initialize Capacitor native plugins when running as native app
+async function initNative() {
+  try {
+    const { Capacitor } = await import('@capacitor/core');
+    if (!Capacitor.isNativePlatform()) return;
+    const { StatusBar, Style } = await import('@capacitor/status-bar');
+    const { SplashScreen } = await import('@capacitor/splash-screen');
+    await StatusBar.setStyle({ style: Style.Dark });
+    await StatusBar.setBackgroundColor({ color: '#080810' });
+    await SplashScreen.hide();
+  } catch (_) {}
+}
+initNative();
 
 class ErrorBoundary extends React.Component {
   state = { error: null }
